@@ -1,14 +1,14 @@
 # hi-team — еженедельные отчёты команды
 
 Веб-приложение для еженедельных отчётов команды вместо таблицы в Confluence.
-Команда логинится по почте (magic-link), заполняет отчёт в структуре
+Команда входит по **email + паролю**, заполняет отчёт в структуре
 **Проект → Сделано / Блокеры / Планы**, а встроенный ИИ (OpenRouter) делает
 сводку недели для руководителя.
 
 ## Стек
 
 - **Next.js 16** (App Router, TypeScript) + **Tailwind CSS v4**
-- **Auth.js (NextAuth v5)** — вход по ссылке на почту через **Resend**
+- **Auth.js (NextAuth v5)** — вход по email + паролю (Credentials, JWT, bcrypt)
 - **Prisma + Neon Postgres**
 - **OpenRouter** — AI-суммаризация (серверный route, ключ не уходит в браузер)
 - Хостинг — **Vercel**
@@ -27,8 +27,6 @@
    - `AUTH_SECRET` — сгенерировать: `npx auth secret`.
    - `OPENROUTER_API_KEY` — **новый** ключ OpenRouter (старый отозвать!).
    - `ALLOWED_EMAILS` — почты команды через запятую.
-   - `AUTH_RESEND_KEY` / `EMAIL_FROM` — для реальной отправки писем (необязательно
-     локально: без ключа ссылка для входа печатается в консоль сервера).
 3. Применить схему и засеять реальные данные из Confluence:
    ```bash
    npm run db:push
@@ -38,18 +36,19 @@
    ```bash
    npm run dev
    ```
-   Открыть http://localhost:3000 → войти своей почтой из `ALLOWED_EMAILS`.
-   Без `AUTH_RESEND_KEY` ссылку для входа смотрите в консоли, где запущен `dev`.
+   Открыть http://localhost:3000. При первом входе нажмите **«Первый вход? Задать
+   пароль»**, укажите почту из `ALLOWED_EMAILS` и задайте пароль — дальше вход по
+   email + паролю.
 
 ## Структура
 
 | Путь | Назначение |
 | --- | --- |
-| `app/login` | Вход по magic-link |
+| `app/login` | Вход по email + паролю (+ первый вход) |
 | `app/dashboard` | Таблица недели × сотрудники + AI-сводка |
 | `app/report` | Форма своего недельного отчёта |
 | `app/api/summary` | Генерация AI-сводки недели (OpenRouter) |
-| `lib/auth.ts` | Конфиг Auth.js (Resend + allowlist) |
+| `lib/auth.ts` | Конфиг Auth.js (Credentials + allowlist) |
 | `lib/openrouter.ts` | Вызов OpenRouter + промпт для руководителя |
 | `lib/weeks.ts` | Текущая рабочая неделя и подписи дат |
 | `prisma/schema.prisma` | Модель данных |
