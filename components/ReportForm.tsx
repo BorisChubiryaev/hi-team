@@ -8,8 +8,12 @@ const EMPTY: ProjectInput = { name: "", done: "", blockers: "", plans: "" };
 
 export default function ReportForm({
   initialProjects,
+  projectNames = [],
+  draftFromLabel = null,
 }: {
   initialProjects: ProjectInput[];
+  projectNames?: string[];
+  draftFromLabel?: string | null;
 }) {
   const [projects, setProjects] = useState<ProjectInput[]>(
     initialProjects.length ? initialProjects : [{ ...EMPTY }],
@@ -43,6 +47,20 @@ export default function ReportForm({
 
   return (
     <div className="space-y-6">
+      {draftFromLabel && !saved && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          Черновик предзаполнен по планам за неделю {draftFromLabel}: планы
+          перенесены в «Сделано» как заготовка, блокеры — как есть.
+          Отредактируйте и нажмите «Сохранить отчёт».
+        </p>
+      )}
+      {projectNames.length > 0 && (
+        <datalist id="project-names">
+          {projectNames.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+      )}
       {projects.map((p, i) => (
         <div
           key={i}
@@ -52,6 +70,7 @@ export default function ReportForm({
             <input
               value={p.name}
               onChange={(e) => update(i, "name", e.target.value)}
+              list="project-names"
               placeholder="Название проекта / направления"
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />

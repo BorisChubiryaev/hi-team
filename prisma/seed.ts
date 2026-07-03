@@ -285,8 +285,40 @@ async function main() {
     }
   }
 
+  // Проекты-сущности: группируем строки отчётов по имени и проставляем projectId
+  // (та же логика, что в prisma/backfill-projects.ts).
+  const rows = await prisma.reportProject.findMany({
+    where: { projectId: null },
+    select: { id: true, name: true },
+  });
+  const groups = new Map<string, { display: string; ids: string[] }>();
+  for (const row of rows) {
+    const display = row.name.trim().replace(/\s+/g, " ");
+    if (!display) continue;
+    const key = display.toLowerCase();
+    const group = groups.get(key) ?? { display, ids: [] };
+    group.ids.push(row.id);
+    groups.set(key, group);
+  }
+  for (const { display, ids } of groups.values()) {
+    const existing = await prisma.project.findFirst({
+      where: { name: { equals: display, mode: "insensitive" } },
+      select: { id: true },
+    });
+    const project =
+      existing ??
+      (await prisma.project.create({
+        data: { name: display },
+        select: { id: true },
+      }));
+    await prisma.reportProject.updateMany({
+      where: { id: { in: ids } },
+      data: { projectId: project.id },
+    });
+  }
+
   console.log(
-    `✅ Засеяно: ${TEAM.length} сотрудников, ${WEEKS.length} недели с отчётами.`,
+    `✅ Засеяно: ${TEAM.length} сотрудников, ${WEEKS.length} недели с отчётами, ${groups.size} проектов.`,
   );
 }
 

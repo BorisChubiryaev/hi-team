@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
+    "db:backfill-projects": "tsx prisma/backfill-projects.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {

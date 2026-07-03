@@ -3,26 +3,58 @@ import Header from "@/components/Header";
 import SummaryCell from "@/components/SummaryCell";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { currentWeekRange } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
+
+const DEFAULT_WEEKS_LIMIT = 8;
 
 function displayName(user: { name: string | null; email: string }) {
   return user.name ?? user.email.split("@")[0];
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const me = await requireUser();
 
-  const [users, weeks] = await Promise.all([
+  const params = await searchParams;
+  const rawLimit = Number(
+    Array.isArray(params.limit) ? params.limit[0] : params.limit,
+  );
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.floor(rawLimit)
+      : DEFAULT_WEEKS_LIMIT;
+
+  const { start } = currentWeekRange();
+
+  const [users, weeks, totalWeeks, currentWeek] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.week.findMany({
       orderBy: { startDate: "desc" },
+      take: limit,
       include: {
         summary: true,
         reports: { include: { projects: { orderBy: { order: "asc" } } } },
       },
     }),
+    prisma.week.count(),
+    prisma.week.findUnique({
+      where: { startDate: start },
+      include: { reports: { include: { projects: true } } },
+    }),
   ]);
+
+  // Кто ещё не сдал отчёт за текущую неделю.
+  const submitted = new Set(
+    (currentWeek?.reports ?? [])
+      .filter((r) => r.projects.length > 0)
+      .map((r) => r.userId),
+  );
+  const missing = users.filter((u) => !submitted.has(u.id));
 
   // weekId -> userId -> projects
   const byWeekUser = new Map<string, Map<string, (typeof weeks)[number]["reports"][number]["projects"]>>();
@@ -53,6 +85,15 @@ export default async function DashboardPage() {
             Заполнить мой отчёт
           </Link>
         </div>
+
+        {missing.length > 0 && (
+          <p className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            Ещё не сдали отчёт за текущую неделю:{" "}
+            <span className="font-medium">
+              {missing.map((u) => displayName(u)).join(", ")}
+            </span>
+          </p>
+        )}
 
         {weeks.length === 0 ? (
           <p className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-500 dark:border-slate-700">
@@ -90,6 +131,13 @@ export default async function DashboardPage() {
                     <tr key={w.id} className="align-top">
                       <th className="sticky left-0 z-10 border-b border-r border-slate-200 bg-white p-3 text-left align-top font-medium text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
                         {w.label}
+                        <a
+                          href={`/api/export?weekId=${w.id}`}
+                          className="mt-1 block text-xs font-normal text-blue-600 hover:underline dark:text-blue-400"
+                          title="Скачать неделю в Markdown"
+                        >
+                          Экспорт .md
+                        </a>
                       </th>
                       {users.map((u) => {
                         const projects = userMap.get(u.id);
@@ -127,6 +175,17 @@ export default async function DashboardPage() {
             </table>
           </div>
         )}
+
+        {totalWeeks > weeks.length && (
+          <div className="mt-4 text-center">
+            <Link
+              href={`/dashboard?limit=${limit + DEFAULT_WEEKS_LIMIT}`}
+              className="inline-block rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              Показать ещё ({weeks.length} из {totalWeeks} недель)
+            </Link>
+          </div>
+        )}
       </main>
     </>
   );
@@ -136,6 +195,7 @@ function ProjectBlock({
   project,
 }: {
   project: {
+    projectId: string | null;
     name: string;
     done: string;
     blockers: string;
@@ -144,11 +204,19 @@ function ProjectBlock({
 }) {
   return (
     <div className="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-900">
-      {project.name && (
-        <p className="font-medium text-slate-900 dark:text-white">
-          {project.name}
-        </p>
-      )}
+      {project.name &&
+        (project.projectId ? (
+          <Link
+            href={`/projects/${project.projectId}`}
+            className="font-medium text-slate-900 hover:text-blue-700 hover:underline dark:text-white dark:hover:text-blue-300"
+          >
+            {project.name}
+          </Link>
+        ) : (
+          <p className="font-medium text-slate-900 dark:text-white">
+            {project.name}
+          </p>
+        ))}
       <Section label="Сделано" value={project.done} tone="emerald" />
       <Section label="Блокеры" value={project.blockers} tone="red" />
       <Section label="Планы" value={project.plans} tone="blue" />

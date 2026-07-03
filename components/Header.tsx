@@ -6,7 +6,7 @@ export default function Header({
   active,
 }: {
   email?: string | null;
-  active: "dashboard" | "report";
+  active: "dashboard" | "report" | "projects";
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
@@ -17,6 +17,7 @@ export default function Header({
         <nav className="flex items-center gap-1 text-sm">
           <Tab href="/dashboard" label="Отчёты" active={active === "dashboard"} />
           <Tab href="/report" label="Мой отчёт" active={active === "report"} />
+          <Tab href="/projects" label="Проекты" active={active === "projects"} />
         </nav>
         <div className="ml-auto flex items-center gap-3">
           {email && (

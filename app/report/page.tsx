@@ -21,13 +21,45 @@ export default async function ReportPage() {
       })
     : null;
 
-  const initialProjects: ProjectInput[] =
+  let initialProjects: ProjectInput[] =
     report?.projects.map((p) => ({
       name: p.name,
       done: p.done,
       blockers: p.blockers,
       plans: p.plans,
     })) ?? [];
+
+  // Черновик: если отчёт за текущую неделю ещё не создан, предзаполняем его
+  // из прошлого отчёта — планы становятся заготовкой «Сделано», блокеры переносятся.
+  let draftFromLabel: string | null = null;
+  if (!report) {
+    const previous = await prisma.report.findFirst({
+      where: { userId: user.id, week: { startDate: { lt: start } } },
+      orderBy: { week: { startDate: "desc" } },
+      include: {
+        week: true,
+        projects: { orderBy: { order: "asc" } },
+      },
+    });
+    if (previous && previous.projects.length > 0) {
+      draftFromLabel = previous.week.label;
+      initialProjects = previous.projects.map((p) => ({
+        name: p.name,
+        done: p.plans,
+        blockers: p.blockers,
+        plans: "",
+      }));
+    }
+  }
+
+  // Имена активных проектов для автодополнения в форме.
+  const projectNames = (
+    await prisma.project.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: { name: true },
+    })
+  ).map((p) => p.name);
 
   return (
     <>
@@ -42,7 +74,11 @@ export default async function ReportPage() {
             блокеры и планы.
           </p>
         </div>
-        <ReportForm initialProjects={initialProjects} />
+        <ReportForm
+          initialProjects={initialProjects}
+          projectNames={projectNames}
+          draftFromLabel={draftFromLabel}
+        />
       </main>
     </>
   );
