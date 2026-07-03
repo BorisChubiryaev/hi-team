@@ -4,9 +4,11 @@ import Header from "@/components/Header";
 import ProjectAdminPanel from "@/components/ProjectAdminPanel";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import ProjectSummaryPanel from "@/components/ProjectSummaryPanel";
+import ColumnChart from "@/components/charts/ColumnChart";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PROJECT_STATUS_LABELS } from "@/lib/projects";
+import { isoDate, recentWeeks, shortWeekLabel } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
 
@@ -57,10 +59,22 @@ export default async function ProjectPage({
     (a, b) => b.startDate.getTime() - a.startDate.getTime(),
   );
 
+  // Активность за последние 12 недель (число упоминаний по неделям, старые → новые).
+  const activity = recentWeeks(12)
+    .reverse()
+    .map((w) => {
+      const key = isoDate(w.start);
+      const count = project.entries.filter(
+        (e) => isoDate(e.report.week.startDate) === key,
+      ).length;
+      return { label: w.label, short: shortWeekLabel(w.label), value: count };
+    });
+  const hasActivity = activity.some((p) => p.value > 0);
+
   return (
     <>
       <Header email={me.email} active="projects" isLead={isLead} />
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+      <main className="viz-root mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <Link
             href="/projects"
@@ -99,6 +113,21 @@ export default async function ProjectPage({
               projectName={project.name}
               otherProjects={otherProjects}
             />
+          )}
+          {hasActivity && (
+            <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="font-medium text-slate-900 dark:text-white">
+                Активность за 12 недель
+              </h2>
+              <p className="mb-4 mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                Число упоминаний проекта в отчётах по неделям
+              </p>
+              <ColumnChart
+                data={activity}
+                unit="упоминаний"
+                tableCaption={`Упоминания проекта «${project.name}» по неделям`}
+              />
+            </section>
           )}
         </div>
 
