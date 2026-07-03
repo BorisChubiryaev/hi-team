@@ -15,7 +15,7 @@ export async function setPassword(
   password: string,
 ): Promise<Result> {
   const e = email.trim().toLowerCase();
-  if (!isAllowed(e)) {
+  if (!(await isAllowed(e))) {
     return { ok: false, error: "Эта почта не в списке команды" };
   }
   if (password.length < 6) {

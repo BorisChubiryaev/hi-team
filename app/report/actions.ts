@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ensureProject, normalizeProjectName } from "@/lib/projects";
-import { currentWeekRange, formatWeekLabel } from "@/lib/weeks";
+import { EDITABLE_WEEKS, isoDate, recentWeeks } from "@/lib/weeks";
 
 export type ProjectInput = {
   name: string;
@@ -13,18 +13,31 @@ export type ProjectInput = {
   plans: string;
 };
 
-/** Сохраняет (создаёт или обновляет) отчёт текущего пользователя за текущую неделю. */
-export async function saveReport(projects: ProjectInput[]) {
+/**
+ * Сохраняет (создаёт или обновляет) отчёт текущего пользователя за выбранную
+ * неделю. Разрешены только текущая и три прошлые недели (защита от подделки
+ * дат и правок глубокой истории).
+ */
+export async function saveReport(
+  weekStartIso: string,
+  projects: ProjectInput[],
+) {
   const user = await requireUser();
-  const { start, end } = currentWeekRange();
+
+  const target = recentWeeks(EDITABLE_WEEKS).find(
+    (w) => isoDate(w.start) === weekStartIso,
+  );
+  if (!target) {
+    throw new Error("Эту неделю уже нельзя заполнить");
+  }
 
   const week = await prisma.week.upsert({
-    where: { startDate: start },
+    where: { startDate: target.start },
     update: {},
     create: {
-      startDate: start,
-      endDate: end,
-      label: formatWeekLabel(start, end),
+      startDate: target.start,
+      endDate: target.end,
+      label: target.label,
     },
   });
 

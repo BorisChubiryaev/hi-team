@@ -14,15 +14,30 @@ datasource db {
 // Пользователи (вход по email + паролю, JWT-сессии Auth.js)
 // ---------------------------------------------------------------------------
 
+enum Role {
+  MEMBER
+  LEAD
+}
+
 model User {
-  id           String   @id @default(cuid())
-  name         String?
-  email        String   @unique
-  passwordHash String? // bcrypt; null = пароль ещё не задан (первый вход)
-  image        String?
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  name           String?
+  email          String   @unique
+  passwordHash   String? // bcrypt; null = пароль ещё не задан (первый вход)
+  image          String?
+  role           Role     @default(MEMBER)
+  active         Boolean  @default(true) // false = ушёл из команды: не логинится, не в дашборде
+  telegramChatId String? // личный chat_id для персональных напоминаний
+  createdAt      DateTime @default(now())
 
   reports Report[]
+}
+
+// Allowlist почт для входа. Если таблица пуста — fallback на env ALLOWED_EMAILS.
+model AllowedEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +105,16 @@ model ReportProject {
 
   @@index([reportId])
   @@index([projectId])
+}
+
+// Сгенерированная ИИ сводка месяца (для отчётности наверх)
+model MonthSummary {
+  id        String   @id @default(cuid())
+  month     String   @unique // YYYY-MM
+  content   String   @db.Text
+  model     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Сгенерированная ИИ сводка недели для руководителя

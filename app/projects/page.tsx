@@ -1,13 +1,19 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
-import { requireUser } from "@/lib/auth";
+import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { PROJECT_STATUS_LABELS } from "@/lib/projects";
+import { currentWeekRange } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
 
+// Активный проект считаем «без движения», если его не упоминали столько недель.
+const STALE_AFTER_WEEKS = 2;
+
 export default async function ProjectsPage() {
-  const me = await requireUser();
+  const me = await requireDbUser();
+  const isLead = me.role === "LEAD";
 
   const projects = await prisma.project.findMany({
     orderBy: [{ status: "asc" }, { name: "asc" }],
@@ -18,22 +24,34 @@ export default async function ProjectsPage() {
     },
   });
 
+  const { start: currentStart } = currentWeekRange();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+
   const rows = projects.map((p) => {
     const weeks = p.entries
       .map((e) => e.report.week)
       .sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+    const last = weeks[0] ?? null;
+    const staleWeeks = last
+      ? Math.floor((currentStart.getTime() - last.startDate.getTime()) / weekMs)
+      : null;
     return {
       id: p.id,
       name: p.name,
       status: p.status,
       mentions: p.entries.length,
-      lastWeekLabel: weeks[0]?.label ?? null,
+      lastWeekLabel: last?.label ?? null,
+      // «нет движения» — только для активных проектов с историей
+      staleWeeks:
+        p.status === "ACTIVE" && staleWeeks !== null && staleWeeks >= STALE_AFTER_WEEKS
+          ? staleWeeks
+          : null,
     };
   });
 
   return (
     <>
-      <Header email={me.email} active="projects" />
+      <Header email={me.email} active="projects" isLead={isLead} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
@@ -74,9 +92,23 @@ export default async function ProjectsPage() {
                       >
                         {p.name}
                       </Link>
+                      {p.staleWeeks !== null && (
+                        <span
+                          className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                          title="Активный проект давно не упоминался в отчётах"
+                        >
+                          нет движения {p.staleWeeks} нед.
+                        </span>
+                      )}
                     </td>
                     <td className="p-3">
-                      <ProjectStatusSelect projectId={p.id} status={p.status} />
+                      {isLead ? (
+                        <ProjectStatusSelect projectId={p.id} status={p.status} />
+                      ) : (
+                        <span className="text-slate-600 dark:text-slate-300">
+                          {PROJECT_STATUS_LABELS[p.status]}
+                        </span>
+                      )}
                     </td>
                     <td className="p-3 text-slate-600 dark:text-slate-300">
                       {p.mentions}

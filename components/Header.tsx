@@ -4,9 +4,11 @@ import { signOut } from "@/lib/auth";
 export default function Header({
   email,
   active,
+  isLead = false,
 }: {
   email?: string | null;
-  active: "dashboard" | "report" | "projects";
+  active: "dashboard" | "report" | "projects" | "monthly" | "admin";
+  isLead?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
@@ -18,6 +20,10 @@ export default function Header({
           <Tab href="/dashboard" label="Отчёты" active={active === "dashboard"} />
           <Tab href="/report" label="Мой отчёт" active={active === "report"} />
           <Tab href="/projects" label="Проекты" active={active === "projects"} />
+          <Tab href="/monthly" label="Месяц" active={active === "monthly"} />
+          {isLead && (
+            <Tab href="/admin" label="Команда" active={active === "admin"} />
+          )}
         </nav>
         <div className="ml-auto flex items-center gap-3">
           {email && (

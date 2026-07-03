@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
+import ProjectAdminPanel from "@/components/ProjectAdminPanel";
 import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import ProjectSummaryPanel from "@/components/ProjectSummaryPanel";
-import { requireUser } from "@/lib/auth";
+import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { PROJECT_STATUS_LABELS } from "@/lib/projects";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,8 @@ export default async function ProjectPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const me = await requireUser();
+  const me = await requireDbUser();
+  const isLead = me.role === "LEAD";
   const { id } = await params;
 
   const project = await prisma.project.findUnique({
@@ -25,6 +28,14 @@ export default async function ProjectPage({
     },
   });
   if (!project) notFound();
+
+  const otherProjects = isLead
+    ? await prisma.project.findMany({
+        where: { NOT: { id } },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      })
+    : [];
 
   // История по неделям, новые сверху.
   const byWeek = new Map<
@@ -48,7 +59,7 @@ export default async function ProjectPage({
 
   return (
     <>
-      <Header email={me.email} active="projects" />
+      <Header email={me.email} active="projects" isLead={isLead} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <Link
@@ -61,11 +72,17 @@ export default async function ProjectPage({
             <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
               {project.name}
             </h1>
-            <ProjectStatusSelect projectId={project.id} status={project.status} />
+            {isLead ? (
+              <ProjectStatusSelect projectId={project.id} status={project.status} />
+            ) : (
+              <span className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                {PROJECT_STATUS_LABELS[project.status]}
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="mb-6">
+        <div className="mb-6 space-y-4">
           <ProjectSummaryPanel
             projectId={project.id}
             initialContent={project.aiSummary}
@@ -76,6 +93,13 @@ export default async function ProjectPage({
             }
             hasEntries={project.entries.length > 0}
           />
+          {isLead && (
+            <ProjectAdminPanel
+              projectId={project.id}
+              projectName={project.name}
+              otherProjects={otherProjects}
+            />
+          )}
         </div>
 
         <h2 className="mb-3 font-semibold text-slate-900 dark:text-white">
