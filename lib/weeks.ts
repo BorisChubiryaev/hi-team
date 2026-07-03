@@ -88,6 +88,12 @@ const MONTHS_NOMINATIVE = [
   "декабрь",
 ];
 
+/** Короткая подпись недели для осей: «15–19 июня» → «15–19». */
+export function shortWeekLabel(label: string): string {
+  const nums = label.match(/\d+/g);
+  return nums && nums.length >= 2 ? `${nums[0]}–${nums[1]}` : label;
+}
+
 /** Ключ месяца YYYY-MM по дате (UTC). */
 export function monthKey(date: Date): string {
   return date.toISOString().slice(0, 7);

@@ -7,7 +7,7 @@ export default function Header({
   isLead = false,
 }: {
   email?: string | null;
-  active: "dashboard" | "report" | "projects" | "monthly" | "admin";
+  active: "dashboard" | "report" | "projects" | "monthly" | "analytics" | "admin";
   isLead?: boolean;
 }) {
   return (
@@ -21,6 +21,11 @@ export default function Header({
           <Tab href="/report" label="Мой отчёт" active={active === "report"} />
           <Tab href="/projects" label="Проекты" active={active === "projects"} />
           <Tab href="/monthly" label="Месяц" active={active === "monthly"} />
+          <Tab
+            href="/analytics"
+            label="Аналитика"
+            active={active === "analytics"}
+          />
           {isLead && (
             <Tab href="/admin" label="Команда" active={active === "admin"} />
           )}

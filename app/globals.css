@@ -24,3 +24,35 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Палитра графиков (референс-палитра dataviz, валидирована validate_palette.js
+   на светлой #ffffff и тёмной #0f172a поверхностях карточек). */
+.viz-root {
+  --viz-surface: #ffffff;
+  --viz-track: #f1f5f9;
+  --viz-grid: #e2e8f0;
+  --viz-text-primary: #0f172a;
+  --viz-text-secondary: #475569;
+  --viz-text-muted: #94a3b8;
+  --viz-series: #2a78d6;
+  --heat-1: #86b6ef;
+  --heat-2: #5598e7;
+  --heat-3: #2a78d6;
+  --heat-4: #1c5cab;
+}
+
+@media (prefers-color-scheme: dark) {
+  .viz-root {
+    --viz-surface: #0f172a;
+    --viz-track: #1e293b;
+    --viz-grid: #334155;
+    --viz-text-primary: #ffffff;
+    --viz-text-secondary: #cbd5e1;
+    --viz-text-muted: #64748b;
+    --viz-series: #3987e5;
+    --heat-1: #184f95;
+    --heat-2: #256abf;
+    --heat-3: #3987e5;
+    --heat-4: #86b6ef;
+  }
+}
