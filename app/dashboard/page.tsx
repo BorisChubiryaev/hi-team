@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import SummaryCell from "@/components/SummaryCell";
-import { requireUser } from "@/lib/auth";
+import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { currentWeekRange } from "@/lib/weeks";
 
@@ -18,7 +18,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const me = await requireUser();
+  const me = await requireDbUser();
 
   const params = await searchParams;
   const rawLimit = Number(
@@ -32,7 +32,10 @@ export default async function DashboardPage({
   const { start } = currentWeekRange();
 
   const [users, weeks, totalWeeks, currentWeek] = await Promise.all([
-    prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.user.findMany({
+      where: { active: true },
+      orderBy: { createdAt: "asc" },
+    }),
     prisma.week.findMany({
       orderBy: { startDate: "desc" },
       take: limit,
@@ -66,7 +69,11 @@ export default async function DashboardPage({
 
   return (
     <>
-      <Header email={me.email} active="dashboard" />
+      <Header
+        email={me.email}
+        active="dashboard"
+        isLead={me.role === "LEAD"}
+      />
       <main className="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>

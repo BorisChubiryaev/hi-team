@@ -1,17 +1,28 @@
+import Link from "next/link";
 import Header from "@/components/Header";
 import ReportForm from "@/components/ReportForm";
-import { requireUser } from "@/lib/auth";
+import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { currentWeekRange, formatWeekLabel } from "@/lib/weeks";
+import { EDITABLE_WEEKS, isoDate, recentWeeks } from "@/lib/weeks";
 import type { ProjectInput } from "@/app/report/actions";
 
-export default async function ReportPage() {
-  const user = await requireUser();
-  const { start, end } = currentWeekRange();
-  const label = formatWeekLabel(start, end);
+export default async function ReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const user = await requireDbUser();
+
+  const weeks = recentWeeks(EDITABLE_WEEKS);
+  const params = await searchParams;
+  const requested = Array.isArray(params.week) ? params.week[0] : params.week;
+  const selected =
+    weeks.find((w) => isoDate(w.start) === requested) ?? weeks[0];
+  const selectedIso = isoDate(selected.start);
+  const isCurrent = selectedIso === isoDate(weeks[0].start);
 
   const week = await prisma.week.findUnique({
-    where: { startDate: start },
+    where: { startDate: selected.start },
   });
 
   const report = week
@@ -29,12 +40,13 @@ export default async function ReportPage() {
       plans: p.plans,
     })) ?? [];
 
-  // Черновик: если отчёт за текущую неделю ещё не создан, предзаполняем его
-  // из прошлого отчёта — планы становятся заготовкой «Сделано», блокеры переносятся.
+  // Черновик: если отчёт за выбранную неделю ещё не создан, предзаполняем его
+  // из последнего отчёта до неё — планы становятся заготовкой «Сделано»,
+  // блокеры переносятся.
   let draftFromLabel: string | null = null;
   if (!report) {
     const previous = await prisma.report.findFirst({
-      where: { userId: user.id, week: { startDate: { lt: start } } },
+      where: { userId: user.id, week: { startDate: { lt: selected.start } } },
       orderBy: { week: { startDate: "desc" } },
       include: {
         week: true,
@@ -63,18 +75,44 @@ export default async function ReportPage() {
 
   return (
     <>
-      <Header email={user.email} active="report" />
+      <Header
+        email={user.email}
+        active="report"
+        isLead={user.role === "LEAD"}
+      />
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
             Мой отчёт
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Неделя {label}. Для каждого проекта заполните, что сделано, какие
-            блокеры и планы.
+            Неделя {selected.label}
+            {isCurrent ? " (текущая)" : ""}. Для каждого проекта заполните, что
+            сделано, какие блокеры и планы.
           </p>
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {weeks.map((w, i) => {
+              const iso = isoDate(w.start);
+              const activeTab = iso === selectedIso;
+              return (
+                <Link
+                  key={iso}
+                  href={i === 0 ? "/report" : `/report?week=${iso}`}
+                  className={`rounded-lg px-3 py-1.5 text-sm transition ${
+                    activeTab
+                      ? "bg-blue-600 font-medium text-white"
+                      : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  }`}
+                >
+                  {w.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
         <ReportForm
+          key={selectedIso}
+          weekStartIso={selectedIso}
           initialProjects={initialProjects}
           projectNames={projectNames}
           draftFromLabel={draftFromLabel}

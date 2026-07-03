@@ -7,10 +7,12 @@ import { saveReport, type ProjectInput } from "@/app/report/actions";
 const EMPTY: ProjectInput = { name: "", done: "", blockers: "", plans: "" };
 
 export default function ReportForm({
+  weekStartIso,
   initialProjects,
   projectNames = [],
   draftFromLabel = null,
 }: {
+  weekStartIso: string;
   initialProjects: ProjectInput[];
   projectNames?: string[];
   draftFromLabel?: string | null;
@@ -39,7 +41,7 @@ export default function ReportForm({
 
   function onSave() {
     startTransition(async () => {
-      await saveReport(projects);
+      await saveReport(weekStartIso, projects);
       setSaved(true);
       router.refresh();
     });

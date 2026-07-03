@@ -166,3 +166,62 @@ export async function summarizeProject(
     { role: "user", content: buildProjectPrompt(input) },
   ]);
 }
+
+// ---------------------------------------------------------------------------
+// Сводка месяца (для отчётности наверх)
+// ---------------------------------------------------------------------------
+
+const MONTH_SYSTEM_PROMPT = `Ты — ассистент, который готовит итоги месяца по еженедельным отчётам команды (аналитика данных и веб-разработка). Читатель — руководитель, которому нужно отчитаться о месяце наверх.
+
+Пиши строго по-русски, по делу, без воды. Структура:
+
+1. Главные итоги месяца (3–5 пунктов: самое значимое, сгруппировано по проектам).
+2. Состояние ключевых проектов (по каждому крупному проекту: 1–2 предложения о прогрессе за месяц).
+3. Блокеры и риски (в первую очередь те, что не решались несколько недель).
+4. Фокус следующего месяца (из планов последних недель).
+
+Требования: опирайся только на факты из отчётов и недельных сводок, не выдумывай. Не пересказывай по неделям — агрегируй за месяц. Компактно, маркированные списки приветствуются.`;
+
+export type MonthInput = {
+  monthLabel: string;
+  weeks: {
+    weekLabel: string;
+    /** Недельная AI-сводка, если уже есть, — компактнее сырых отчётов. */
+    summary: string | null;
+    reports: WeekReportInput["reports"];
+  }[];
+};
+
+function buildMonthPrompt(input: MonthInput): string {
+  const lines: string[] = [
+    `Материалы за ${input.monthLabel} (недели от старых к новым).`,
+    "",
+  ];
+  for (const w of input.weeks) {
+    lines.push(`## Неделя ${w.weekLabel}`);
+    if (w.summary?.trim()) {
+      lines.push("Готовая сводка недели:", w.summary.trim());
+    } else {
+      for (const r of w.reports) {
+        lines.push(`### Сотрудник: ${r.name}`);
+        for (const p of r.projects) {
+          lines.push(`Проект: ${p.name || "—"}`);
+          if (p.done.trim()) lines.push(`  Сделано: ${p.done.trim()}`);
+          if (p.blockers.trim()) lines.push(`  Блокеры: ${p.blockers.trim()}`);
+          if (p.plans.trim()) lines.push(`  Планы: ${p.plans.trim()}`);
+        }
+      }
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+export async function summarizeMonth(
+  input: MonthInput,
+): Promise<{ content: string; model: string }> {
+  return callOpenRouter([
+    { role: "system", content: MONTH_SYSTEM_PROMPT },
+    { role: "user", content: buildMonthPrompt(input) },
+  ]);
+}

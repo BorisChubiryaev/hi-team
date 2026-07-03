@@ -53,3 +53,48 @@ export function formatWeekLabel(start: Date, end: Date): string {
 export function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
+
+export type WeekOption = { start: Date; end: Date; label: string };
+
+/** Сколько недель доступно для заполнения отчёта: текущая + 3 прошлые. */
+export const EDITABLE_WEEKS = 4;
+
+/** Последние `count` рабочих недель: текущая первой, дальше в прошлое. */
+export function recentWeeks(count: number, now: Date = new Date()): WeekOption[] {
+  const { start } = currentWeekRange(now);
+  const weeks: WeekOption[] = [];
+  for (let i = 0; i < count; i++) {
+    const s = new Date(start);
+    s.setUTCDate(s.getUTCDate() - 7 * i);
+    const e = new Date(s);
+    e.setUTCDate(s.getUTCDate() + 4);
+    weeks.push({ start: s, end: e, label: formatWeekLabel(s, e) });
+  }
+  return weeks;
+}
+
+const MONTHS_NOMINATIVE = [
+  "январь",
+  "февраль",
+  "март",
+  "апрель",
+  "май",
+  "июнь",
+  "июль",
+  "август",
+  "сентябрь",
+  "октябрь",
+  "ноябрь",
+  "декабрь",
+];
+
+/** Ключ месяца YYYY-MM по дате (UTC). */
+export function monthKey(date: Date): string {
+  return date.toISOString().slice(0, 7);
+}
+
+/** Подпись месяца по ключу YYYY-MM, напр. «июнь 2026». */
+export function formatMonthLabel(key: string): string {
+  const [year, month] = key.split("-").map(Number);
+  return `${MONTHS_NOMINATIVE[(month ?? 1) - 1]} ${year}`;
+}

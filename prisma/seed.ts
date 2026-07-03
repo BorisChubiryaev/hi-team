@@ -7,16 +7,19 @@ const prisma = new PrismaClient();
 // и впишите их же в ALLOWED_EMAILS, чтобы люди могли логиниться.
 // Почта Бориса по умолчанию берётся из SEED_BORIS_EMAIL (удобно для входа).
 // ---------------------------------------------------------------------------
-const TEAM = [
+type TeamSeed = { name: string; email: string; lead?: boolean };
+
+const TEAM: TeamSeed[] = [
   { name: "Сотник Евгений", email: "e.sotnik@company.ru" },
   { name: "Сидорков Дмитрий", email: "d.sidorkov@company.ru" },
   { name: "Загорянский Андрей", email: "a.zagoryanskiy@company.ru" },
   {
     name: "Чубиряев Борис",
     email: process.env.SEED_BORIS_EMAIL || "boriksnote@gmail.com",
+    lead: true,
   },
   { name: "Финогенов Владимир", email: "v.finogenov@company.ru" },
-] as const;
+];
 
 type ProjectSeed = {
   name: string;
@@ -242,15 +245,22 @@ const WEEKS: WeekSeed[] = [
 ];
 
 async function main() {
-  // Пользователи
+  // Пользователи (+ роль руководителя и allowlist для входа)
   const usersByName = new Map<string, string>();
   for (const member of TEAM) {
+    const role = member.lead ? ("LEAD" as const) : ("MEMBER" as const);
     const user = await prisma.user.upsert({
       where: { email: member.email },
-      update: { name: member.name },
-      create: { name: member.name, email: member.email },
+      update: { name: member.name, role },
+      create: { name: member.name, email: member.email, role },
     });
     usersByName.set(member.name, user.id);
+
+    await prisma.allowedEmail.upsert({
+      where: { email: member.email.toLowerCase() },
+      update: {},
+      create: { email: member.email.toLowerCase() },
+    });
   }
 
   // Недели + отчёты
