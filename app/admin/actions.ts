@@ -50,6 +50,33 @@ export async function setUserActive(
   return { ok: true };
 }
 
+/**
+ * Полностью удаляет пользователя вместе с его отчётами (каскад в схеме).
+ * Себя удалить нельзя; последнего руководителя — тоже. Для «ушёл из команды,
+ * но историю сохранить» используйте деактивацию. Только LEAD.
+ */
+export async function deleteUser(userId: string): Promise<ActionResult> {
+  const me = await requireLead();
+  if (userId === me.id) {
+    return { ok: false, error: "Нельзя удалить себя" };
+  }
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) return { ok: false, error: "Пользователь не найден" };
+
+  if (target.role === "LEAD") {
+    const leads = await prisma.user.count({ where: { role: "LEAD" } });
+    if (leads <= 1) {
+      return { ok: false, error: "Нельзя удалить последнего руководителя" };
+    }
+  }
+
+  await prisma.user.delete({ where: { id: userId } });
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
 /** Сохраняет Telegram chat_id для персональных напоминаний (пусто = убрать). */
 export async function setUserTelegram(
   userId: string,

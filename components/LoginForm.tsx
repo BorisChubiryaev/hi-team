@@ -8,6 +8,7 @@ import { setPassword } from "@/app/login/actions";
 export default function LoginForm() {
   const [mode, setMode] = useState<"login" | "first">("login");
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -23,7 +24,7 @@ export default function LoginForm() {
           setError("Пароли не совпадают");
           return;
         }
-        const res = await setPassword(email, pwd);
+        const res = await setPassword(email, pwd, name);
         if (!res.ok) {
           setError(res.error);
           return;
@@ -47,6 +48,24 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={submit} className="mt-6 space-y-4">
+      {mode === "first" && (
+        <div>
+          <label htmlFor="name" className="block text-sm font-medium text-ink">
+            Имя и фамилия
+          </label>
+          <input
+            id="name"
+            type="text"
+            required
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Иван Иванов"
+            className="input mt-1"
+          />
+        </div>
+      )}
+
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-ink">
           Рабочая почта
@@ -111,6 +130,7 @@ export default function LoginForm() {
           setMode((m) => (m === "login" ? "first" : "login"));
           setError("");
           setConfirm("");
+          setName("");
         }}
         className="w-full text-center text-sm text-accent hover:underline"
       >

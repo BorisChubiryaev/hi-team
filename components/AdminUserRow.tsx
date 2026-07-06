@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { Role } from "@prisma/client";
 import {
+  deleteUser,
   setUserActive,
   setUserRole,
   setUserTelegram,
@@ -34,6 +35,17 @@ export default function AdminUserRow({
     });
   }
 
+  function onDelete() {
+    if (
+      !window.confirm(
+        `Удалить ${user.name ?? user.email} из команды? Вместе с пользователем удалятся все его отчёты — действие необратимо. Чтобы сохранить историю, вместо удаления снимите галочку «Активен».`,
+      )
+    ) {
+      return;
+    }
+    run(() => deleteUser(user.id));
+  }
+
   const inputClass =
     "rounded-lg border border-line bg-card px-2 py-1.5 text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60";
 
@@ -51,6 +63,16 @@ export default function AdminUserRow({
           )}
         </p>
         <p className="text-xs text-muted">{user.email}</p>
+        {!isSelf && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={pending}
+            className="mt-1 text-xs text-danger transition hover:underline disabled:opacity-40"
+          >
+            Удалить из команды
+          </button>
+        )}
         {error && <p className="mt-1 text-xs text-danger">{error}</p>}
       </td>
       <td className="p-3">

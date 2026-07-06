@@ -1,4 +1,5 @@
 import Header from "@/components/Header";
+import ProfileForm from "@/components/ProfileForm";
 import TelegramConnect from "@/components/TelegramConnect";
 import { requireDbUser } from "@/lib/auth";
 
@@ -17,6 +18,8 @@ export default async function SettingsPage() {
           </h1>
           <p className="mt-1 text-sm text-muted">{me.name ?? me.email}</p>
         </div>
+
+        <ProfileForm initialName={me.name ?? ""} email={me.email} />
 
         <TelegramConnect
           connected={Boolean(me.telegramChatId)}

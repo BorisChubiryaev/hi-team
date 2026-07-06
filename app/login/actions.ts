@@ -13,6 +13,7 @@ type Result = { ok: true } | { ok: false; error: string };
 export async function setPassword(
   email: string,
   password: string,
+  name?: string,
 ): Promise<Result> {
   const e = email.trim().toLowerCase();
   if (!(await isAllowed(e))) {
@@ -20,6 +21,10 @@ export async function setPassword(
   }
   if (password.length < 6) {
     return { ok: false, error: "Пароль должен быть минимум 6 символов" };
+  }
+  const cleanName = name?.trim() || null;
+  if (!cleanName) {
+    return { ok: false, error: "Укажите имя и фамилию" };
   }
 
   const user = await prisma.user.findUnique({ where: { email: e } });
@@ -29,9 +34,14 @@ export async function setPassword(
 
   const passwordHash = await bcrypt.hash(password, 10);
   if (user) {
-    await prisma.user.update({ where: { email: e }, data: { passwordHash } });
+    await prisma.user.update({
+      where: { email: e },
+      data: { passwordHash, name: cleanName },
+    });
   } else {
-    await prisma.user.create({ data: { email: e, passwordHash } });
+    await prisma.user.create({
+      data: { email: e, passwordHash, name: cleanName },
+    });
   }
   return { ok: true };
 }

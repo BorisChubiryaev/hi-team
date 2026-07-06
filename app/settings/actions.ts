@@ -7,6 +7,21 @@ import { prisma } from "@/lib/db";
 
 const CODE_TTL_MIN = 15;
 
+/** Сохраняет имя и фамилию текущего пользователя. */
+export async function updateProfile(
+  name: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireDbUser();
+  const clean = name.trim();
+  if (!clean) return { ok: false, error: "Имя не может быть пустым" };
+  if (clean.length > 100) return { ok: false, error: "Слишком длинное имя" };
+
+  await prisma.user.update({ where: { id: user.id }, data: { name: clean } });
+  revalidatePath("/settings");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
 /** Генерирует одноразовый код привязки Telegram и возвращает deep-link на бота. */
 export async function createTelegramLink(): Promise<
   { ok: true; url: string; code: string } | { ok: false; error: string }
