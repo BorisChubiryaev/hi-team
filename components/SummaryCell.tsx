@@ -41,16 +41,14 @@ export default function SummaryCell({
   return (
     <div className="flex h-full flex-col gap-2">
       {content ? (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">
           {content}
         </p>
       ) : (
-        <p className="text-sm text-slate-400 dark:text-slate-500">
-          Сводка ещё не сгенерирована.
-        </p>
+        <p className="text-sm text-faint">Сводка ещё не сгенерирована.</p>
       )}
 
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
       <div className="mt-auto flex items-center gap-2 pt-1">
         <button
@@ -58,7 +56,7 @@ export default function SummaryCell({
           onClick={generate}
           disabled={loading || !hasReports}
           title={!hasReports ? "Нет отчётов за эту неделю" : undefined}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          className="btn btn-primary btn-sm"
         >
           {loading
             ? "Генерация…"
@@ -67,7 +65,7 @@ export default function SummaryCell({
               : "Сгенерировать сводку"}
         </button>
         {model && (
-          <span className="text-[10px] text-slate-400" title={model}>
+          <span className="text-[10px] text-faint" title={model}>
             {model.split("/").pop()?.replace(":free", "")}
           </span>
         )}

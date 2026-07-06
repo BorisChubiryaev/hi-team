@@ -39,10 +39,10 @@ export default async function AnalyticsPage({
       />
       <main className="viz-root mx-auto max-w-5xl px-4 py-6 sm:px-6">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Аналитика
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted">
             Дисциплина сдачи, динамика блокеров и активность по проектам.
           </p>
         </div>
@@ -74,10 +74,10 @@ export default async function AnalyticsPage({
             <Link
               key={r.key}
               href={`/analytics?range=${r.key}`}
-              className={`rounded-lg px-3 py-1.5 text-sm transition ${
+              className={`rounded-full px-3 py-1.5 text-sm transition ${
                 r.key === range.key
-                  ? "bg-blue-600 font-medium text-white"
-                  : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                  ? "bg-ink font-medium text-card"
+                  : "border border-line bg-card text-muted hover:bg-panel hover:text-ink"
               }`}
             >
               {r.label}
@@ -163,16 +163,10 @@ function StatTile({
   note?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">
-        {value}
-      </p>
-      {note && (
-        <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-          {note}
-        </p>
-      )}
+    <div className="card p-4">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-ink">{value}</p>
+      {note && <p className="mt-0.5 text-xs text-faint">{note}</p>}
     </div>
   );
 }
@@ -189,15 +183,9 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <section
-      className={`rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 ${
-        wide ? "lg:col-span-2" : ""
-      }`}
-    >
-      <h2 className="font-medium text-slate-900 dark:text-white">{title}</h2>
-      <p className="mb-4 mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-        {subtitle}
-      </p>
+    <section className={`card p-5 ${wide ? "lg:col-span-2" : ""}`}>
+      <h2 className="font-medium text-ink">{title}</h2>
+      <p className="mb-4 mt-0.5 text-xs text-muted">{subtitle}</p>
       {children}
     </section>
   );
@@ -205,7 +193,7 @@ function ChartCard({
 
 function EmptyNote() {
   return (
-    <p className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+    <p className="py-6 text-center text-sm text-faint">
       Нет данных за выбранный период.
     </p>
   );

@@ -19,19 +19,19 @@ export default async function AdminPage() {
       <Header email={me.email} active="admin" isLead />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Команда
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted">
             Роли, доступ и персональные напоминания. Деактивированные не могут
             войти и не показываются на дашборде.
           </p>
         </div>
 
-        <div className="mb-6 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+        <div className="mb-6 overflow-x-auto rounded-xl border border-line-strong">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-900">
+              <tr className="bg-panel">
                 <Th>Сотрудник</Th>
                 <Th>Роль</Th>
                 <Th>Доступ</Th>
@@ -57,7 +57,7 @@ export default async function AdminPage() {
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="border-b border-slate-200 p-3 text-left font-semibold text-slate-700 dark:border-slate-800 dark:text-slate-200">
+    <th className="border-b border-line-strong p-3 text-left font-semibold text-ink">
       {children}
     </th>
   );

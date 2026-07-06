@@ -35,29 +35,23 @@ export default function AdminUserRow({
   }
 
   const inputClass =
-    "rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200";
+    "rounded-lg border border-line bg-card px-2 py-1.5 text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60";
 
   return (
     <tr
-      className={`border-b border-slate-200 last:border-b-0 dark:border-slate-800 ${
+      className={`border-b border-line last:border-b-0 ${
         user.active ? "" : "opacity-50"
       }`}
     >
       <td className="p-3">
-        <p className="font-medium text-slate-900 dark:text-white">
+        <p className="font-medium text-ink">
           {user.name ?? "—"}
           {isSelf && (
-            <span className="ml-1.5 text-xs font-normal text-slate-400">
-              (вы)
-            </span>
+            <span className="ml-1.5 text-xs font-normal text-faint">(вы)</span>
           )}
         </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {user.email}
-        </p>
-        {error && (
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>
-        )}
+        <p className="text-xs text-muted">{user.email}</p>
+        {error && <p className="mt-1 text-xs text-danger">{error}</p>}
       </td>
       <td className="p-3">
         <select
@@ -72,13 +66,13 @@ export default function AdminUserRow({
         </select>
       </td>
       <td className="p-3">
-        <label className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+        <label className="inline-flex items-center gap-2 text-sm text-muted">
           <input
             type="checkbox"
             checked={user.active}
             disabled={pending || isSelf}
             onChange={(e) => run(() => setUserActive(user.id, e.target.checked))}
-            className="h-4 w-4"
+            className="h-4 w-4 accent-[var(--accent)]"
           />
           {user.active ? "Активен" : "Деактивирован"}
         </label>
@@ -96,7 +90,7 @@ export default function AdminUserRow({
             type="button"
             disabled={pending || telegram === (user.telegramChatId ?? "")}
             onClick={() => run(() => setUserTelegram(user.id, telegram))}
-            className="rounded-md px-2 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-400 dark:hover:bg-blue-950"
+            className="rounded-full px-2 py-1.5 text-xs font-medium text-accent transition hover:bg-cream disabled:opacity-40"
           >
             Сохранить
           </button>

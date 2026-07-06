@@ -24,12 +24,10 @@ export default function AllowlistManager({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <h2 className="font-semibold text-slate-900 dark:text-white">
-        Кому разрешён вход
-      </h2>
+    <div className="card p-5">
+      <h2 className="font-semibold text-ink">Кому разрешён вход</h2>
       {usingEnvFallback && (
-        <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+        <p className="mt-2 rounded-lg border border-warn/25 bg-warn-bg px-3 py-2 text-xs text-warn">
           Список пуст — сейчас действует allowlist из переменной окружения
           ALLOWED_EMAILS. Добавьте сюда почты команды, чтобы управлять доступом
           без redeploy (env перестанет учитываться).
@@ -40,7 +38,7 @@ export default function AllowlistManager({
         {emails.map((e) => (
           <li
             key={e.id}
-            className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:bg-slate-950 dark:text-slate-200"
+            className="flex items-center justify-between gap-3 rounded-lg bg-panel px-3 py-2 text-sm text-ink"
           >
             {e.email}
             <button
@@ -51,7 +49,7 @@ export default function AllowlistManager({
                   await removeAllowedEmail(e.id);
                 })
               }
-              className="text-xs text-red-600 hover:underline disabled:opacity-40 dark:text-red-400"
+              className="text-xs text-danger hover:underline disabled:opacity-40"
             >
               Убрать
             </button>
@@ -65,22 +63,20 @@ export default function AllowlistManager({
           onChange={(e) => setValue(e.target.value)}
           placeholder="email@company.ru"
           type="email"
-          className="w-full max-w-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+          className="input max-w-xs"
           aria-label="Почта для доступа"
         />
         <button
           type="button"
           onClick={onAdd}
           disabled={pending || !value.trim()}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          className="btn btn-primary"
         >
           Добавить
         </button>
       </div>
-      {error && (
-        <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
-      )}
-      <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+      <p className="mt-3 text-xs text-muted">
         Удаление почты не блокирует уже созданного пользователя — для этого
         деактивируйте его в таблице выше.
       </p>

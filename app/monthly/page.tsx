@@ -44,17 +44,17 @@ export default async function MonthlyPage({
       />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Итоги месяца
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted">
             AI-агрегация недельных отчётов за месяц — удобно для отчётности
             наверх. Экспортируется в Markdown вместе с отчётами всех недель.
           </p>
         </div>
 
         {months.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-500 dark:border-slate-700">
+          <p className="rounded-xl border border-dashed border-line-strong p-10 text-center text-muted">
             Пока нет ни одного отчёта — итоги месяца появятся, когда команда
             начнёт заполнять недели.
           </p>
@@ -65,10 +65,10 @@ export default async function MonthlyPage({
                 <Link
                   key={m}
                   href={`/monthly?month=${m}`}
-                  className={`rounded-lg px-3 py-1.5 text-sm transition ${
+                  className={`rounded-full px-3 py-1.5 text-sm transition ${
                     m === selected
-                      ? "bg-blue-600 font-medium text-white"
-                      : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                      ? "bg-ink font-medium text-card"
+                      : "border border-line bg-card text-muted hover:bg-panel hover:text-ink"
                   }`}
                 >
                   {formatMonthLabel(m)}

@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin", "cyrillic"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin", "cyrillic"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "hi-team — еженедельные отчёты",
-  description: "Еженедельные отчёты команды и AI-сводки для руководителя",
+  title: "hi-team — еженедельные отчёты команды",
+  description:
+    "Еженедельные отчёты команды и AI-сводки для руководителя. Проекты, аналитика и Telegram-бот — вместо переписок в чатах.",
 };
 
 export default function RootLayout({
@@ -23,11 +20,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="ru"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="ru" className={`${inter.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col bg-canvas text-ink">
+        {children}
+      </body>
     </html>
   );
 }

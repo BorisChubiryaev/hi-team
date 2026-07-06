@@ -28,7 +28,7 @@ export default function ProjectStatusSelect({
           setProjectStatus(projectId, e.target.value as ProjectStatus),
         )
       }
-      className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-blue-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+      className="rounded-lg border border-line bg-card px-2 py-1.5 text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
       aria-label="Статус проекта"
     >
       {OPTIONS.map((o) => (

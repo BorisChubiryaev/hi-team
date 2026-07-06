@@ -39,18 +39,16 @@ export default function MonthSummaryPanel({
   }
 
   return (
-    <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-5 dark:border-blue-900 dark:bg-blue-950/20">
+    <div className="rounded-xl border border-cream-ink/15 bg-cream/50 p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-semibold text-blue-900 dark:text-blue-200">
-          AI-итоги месяца
-        </h2>
+        <h2 className="font-semibold text-cream-ink">AI-итоги месяца</h2>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={generate}
             disabled={loading || !hasReports}
             title={!hasReports ? "За этот месяц нет отчётов" : undefined}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+            className="btn btn-primary btn-sm"
           >
             {loading
               ? "Генерация…"
@@ -61,7 +59,7 @@ export default function MonthSummaryPanel({
           {content && (
             <a
               href={`/api/export?month=${month}`}
-              className="rounded-md border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-950"
+              className="btn btn-ghost btn-sm"
             >
               Экспорт .md
             </a>
@@ -69,23 +67,21 @@ export default function MonthSummaryPanel({
         </div>
       </div>
 
-      {error && (
-        <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
-      )}
+      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
 
       {content ? (
         <>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink">
             {content}
           </p>
           {generatedAt && (
-            <p className="mt-2 text-[11px] text-slate-400">
+            <p className="mt-2 text-[11px] text-faint">
               Сгенерировано: {generatedAt}
             </p>
           )}
         </>
       ) : (
-        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-3 text-sm text-muted">
           Агрегированные итоги месяца по всем отчётам и недельным сводкам —
           для отчётности наверх.
         </p>

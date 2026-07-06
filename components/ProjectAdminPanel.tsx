@@ -47,23 +47,21 @@ export default function ProjectAdminPanel({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <h2 className="mb-3 font-semibold text-slate-900 dark:text-white">
-        Управление проектом
-      </h2>
+    <div className="card p-5">
+      <h2 className="mb-3 font-semibold text-ink">Управление проектом</h2>
 
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+          className="input max-w-md"
           aria-label="Новое имя проекта"
         />
         <button
           type="button"
           onClick={onRename}
           disabled={pending || !name.trim() || name.trim() === projectName}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="btn btn-ghost"
         >
           Переименовать
         </button>
@@ -74,7 +72,7 @@ export default function ProjectAdminPanel({
           <select
             value={mergeTarget}
             onChange={(e) => setMergeTarget(e.target.value)}
-            className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+            className="input max-w-md"
             aria-label="Слить с проектом"
           >
             <option value="">Слить с проектом…</option>
@@ -88,21 +86,19 @@ export default function ProjectAdminPanel({
             type="button"
             onClick={onMerge}
             disabled={pending || !mergeTarget}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+            className="btn btn-danger"
           >
             Слить
           </button>
         </div>
       )}
 
-      <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+      <p className="mt-3 text-xs text-muted">
         Слияние переносит все упоминания в выбранный проект и удаляет текущий.
         Используйте для дублей вида «Дешборд X» / «Дэшборд X».
       </p>
 
-      {error && (
-        <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
-      )}
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
     </div>
   );
 }

@@ -54,25 +54,29 @@ export default async function ProjectsPage() {
       <Header email={me.email} active="projects" isLead={isLead} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Проекты
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted">
             Все проекты и направления из отчётов: статус, история по неделям,
             AI-статус для отчётности.
           </p>
         </div>
 
         {rows.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-slate-500 dark:border-slate-700">
+          <p className="rounded-xl border border-dashed border-line-strong p-10 text-center text-muted">
             Проектов пока нет — они появятся из отчётов. Если отчёты уже есть,
-            запустите <code>npm run db:backfill-projects</code>.
+            запустите{" "}
+            <code className="rounded bg-panel px-1.5 py-0.5 text-[13px]">
+              npm run db:backfill-projects
+            </code>
+            .
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <div className="overflow-x-auto rounded-xl border border-line-strong">
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-900">
+                <tr className="bg-panel">
                   <Th>Проект</Th>
                   <Th>Статус</Th>
                   <Th>Упоминаний</Th>
@@ -83,18 +87,18 @@ export default async function ProjectsPage() {
                 {rows.map((p) => (
                   <tr
                     key={p.id}
-                    className="border-b border-slate-200 last:border-b-0 dark:border-slate-800"
+                    className="border-b border-line last:border-b-0"
                   >
                     <td className="p-3">
                       <Link
                         href={`/projects/${p.id}`}
-                        className="font-medium text-slate-900 hover:text-blue-700 hover:underline dark:text-white dark:hover:text-blue-300"
+                        className="font-medium text-ink hover:text-accent hover:underline"
                       >
                         {p.name}
                       </Link>
                       {p.staleWeeks !== null && (
                         <span
-                          className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                          className="ml-2 rounded-full bg-warn-bg px-2 py-0.5 text-[11px] font-medium text-warn"
                           title="Активный проект давно не упоминался в отчётах"
                         >
                           нет движения {p.staleWeeks} нед.
@@ -105,17 +109,13 @@ export default async function ProjectsPage() {
                       {isLead ? (
                         <ProjectStatusSelect projectId={p.id} status={p.status} />
                       ) : (
-                        <span className="text-slate-600 dark:text-slate-300">
+                        <span className="text-muted">
                           {PROJECT_STATUS_LABELS[p.status]}
                         </span>
                       )}
                     </td>
-                    <td className="p-3 text-slate-600 dark:text-slate-300">
-                      {p.mentions}
-                    </td>
-                    <td className="p-3 text-slate-600 dark:text-slate-300">
-                      {p.lastWeekLabel ?? "—"}
-                    </td>
+                    <td className="p-3 text-muted">{p.mentions}</td>
+                    <td className="p-3 text-muted">{p.lastWeekLabel ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -129,7 +129,7 @@ export default async function ProjectsPage() {
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="border-b border-slate-200 p-3 text-left font-semibold text-slate-700 dark:border-slate-800 dark:text-slate-200">
+    <th className="border-b border-line-strong p-3 text-left font-semibold text-ink">
       {children}
     </th>
   );

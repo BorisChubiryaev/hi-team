@@ -12,12 +12,10 @@ export default async function SettingsPage() {
       <Header email={me.email} active="settings" isLead={me.role === "LEAD"} />
       <main className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Настройки
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            {me.name ?? me.email}
-          </p>
+          <p className="mt-1 text-sm text-muted">{me.name ?? me.email}</p>
         </div>
 
         <TelegramConnect

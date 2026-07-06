@@ -48,7 +48,7 @@ export default function LoginForm() {
   return (
     <form onSubmit={submit} className="mt-6 space-y-4">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label htmlFor="email" className="block text-sm font-medium text-ink">
           Рабочая почта
         </label>
         <input
@@ -59,12 +59,12 @@ export default function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="name@company.ru"
-          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+          className="input mt-1"
         />
       </div>
 
       <div>
-        <label htmlFor="pwd" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+        <label htmlFor="pwd" className="block text-sm font-medium text-ink">
           {mode === "first" ? "Придумайте пароль" : "Пароль"}
         </label>
         <input
@@ -74,13 +74,13 @@ export default function LoginForm() {
           autoComplete={mode === "first" ? "new-password" : "current-password"}
           value={pwd}
           onChange={(e) => setPwd(e.target.value)}
-          className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+          className="input mt-1"
         />
       </div>
 
       {mode === "first" && (
         <div>
-          <label htmlFor="confirm" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label htmlFor="confirm" className="block text-sm font-medium text-ink">
             Повторите пароль
           </label>
           <input
@@ -90,18 +90,14 @@ export default function LoginForm() {
             autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+            className="input mt-1"
           />
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className="btn btn-primary w-full">
         {pending
           ? "Подождите…"
           : mode === "login"
@@ -116,7 +112,7 @@ export default function LoginForm() {
           setError("");
           setConfirm("");
         }}
-        className="w-full text-center text-sm text-blue-600 hover:underline dark:text-blue-400"
+        className="w-full text-center text-sm text-accent hover:underline"
       >
         {mode === "login"
           ? "Первый вход? Задать пароль"

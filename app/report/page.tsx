@@ -82,10 +82,10 @@ export default async function ReportPage({
       />
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Мой отчёт
           </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1 text-sm text-muted">
             Неделя {selected.label}
             {isCurrent ? " (текущая)" : ""}. Для каждого проекта заполните, что
             сделано, какие блокеры и планы.
@@ -98,10 +98,10 @@ export default async function ReportPage({
                 <Link
                   key={iso}
                   href={i === 0 ? "/report" : `/report?week=${iso}`}
-                  className={`rounded-lg px-3 py-1.5 text-sm transition ${
+                  className={`rounded-full px-3 py-1.5 text-sm transition ${
                     activeTab
-                      ? "bg-blue-600 font-medium text-white"
-                      : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                      ? "bg-ink font-medium text-card"
+                      : "border border-line bg-card text-muted hover:bg-panel hover:text-ink"
                   }`}
                 >
                   {w.label}

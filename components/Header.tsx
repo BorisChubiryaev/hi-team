@@ -18,10 +18,13 @@ export default function Header({
   isLead?: boolean;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+    <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-6 px-4 sm:px-6">
-        <Link href="/dashboard" className="font-semibold text-slate-900 dark:text-white">
-          hi-team
+        <Link href="/dashboard" className="flex items-center gap-2">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-accent text-[15px] font-semibold text-white">
+            h
+          </span>
+          <span className="font-semibold tracking-tight text-ink">hi-team</span>
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <Tab href="/dashboard" label="Отчёты" active={active === "dashboard"} />
@@ -44,8 +47,8 @@ export default function Header({
               title="Настройки"
               className={`hidden text-sm transition sm:inline ${
                 active === "settings"
-                  ? "font-medium text-blue-700 dark:text-blue-300"
-                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                  ? "font-medium text-ink"
+                  : "text-muted hover:text-ink"
               }`}
             >
               {email}
@@ -59,7 +62,7 @@ export default function Header({
           >
             <button
               type="submit"
-              className="rounded-lg px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="rounded-full px-3 py-1.5 text-sm text-muted transition hover:bg-panel hover:text-ink"
             >
               Выйти
             </button>
@@ -82,10 +85,10 @@ function Tab({
   return (
     <Link
       href={href}
-      className={`rounded-lg px-3 py-1.5 transition ${
+      className={`rounded-full px-3 py-1.5 transition ${
         active
-          ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-          : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          ? "bg-panel font-medium text-ink"
+          : "text-muted hover:bg-panel hover:text-ink"
       }`}
     >
       {label}
