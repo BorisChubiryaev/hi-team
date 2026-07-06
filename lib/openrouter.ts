@@ -3,7 +3,7 @@
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL =
-  process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat-v3-0324:free";
+  process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
 
 const SYSTEM_PROMPT = `Ты — ассистент, который готовит краткую деловую сводку по еженедельным отчётам команды (аналитика данных и веб-разработка) для руководителя.
 
