@@ -20,17 +20,38 @@ enum Role {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  name           String?
-  email          String   @unique
-  passwordHash   String? // bcrypt; null = пароль ещё не задан (первый вход)
-  image          String?
-  role           Role     @default(MEMBER)
-  active         Boolean  @default(true) // false = ушёл из команды: не логинится, не в дашборде
-  telegramChatId String? // личный chat_id для персональных напоминаний
-  createdAt      DateTime @default(now())
+  id               String   @id @default(cuid())
+  name             String?
+  email            String   @unique
+  passwordHash     String? // bcrypt; null = пароль ещё не задан (первый вход)
+  image            String?
+  role             Role     @default(MEMBER)
+  active           Boolean  @default(true) // false = ушёл из команды: не логинится, не в дашборде
+  telegramChatId   String?  @unique // личный chat_id (привязка Telegram, персональные напоминания)
+  telegramUsername String? // @username на момент привязки — для отображения
+  createdAt        DateTime @default(now())
 
-  reports Report[]
+  reports      Report[]
+  telegramLink TelegramLink?
+}
+
+// Одноразовый код привязки Telegram: пользователь запускает бота с /start <code>.
+model TelegramLink {
+  code      String   @id
+  userId    String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Состояние диалога бота по чату (serverless — храним в БД, не в памяти).
+model TelegramDialog {
+  chatId       String   @id
+  state        String // idle | awaiting_report | confirming
+  weekStartIso String? // неделя, за которую заполняется отчёт (YYYY-MM-DD)
+  draft        String?  @db.Text // JSON распознанных проектов, ждущих подтверждения
+  updatedAt    DateTime @updatedAt
 }
 
 // Allowlist почт для входа. Если таблица пуста — fallback на env ALLOWED_EMAILS.

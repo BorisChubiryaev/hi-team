@@ -50,16 +50,24 @@
 | `app/projects` | Проекты: статусы, история, AI-статус, переименование/слияние (LEAD) |
 | `app/monthly` | AI-итоги месяца для отчётности наверх |
 | `app/admin` | Команда (только LEAD): роли, доступ, allowlist, Telegram chat_id |
+| `app/analytics` | Аналитика: дисциплина, блокеры, топ и активность проектов |
+| `app/settings` | Личные настройки: привязка Telegram-бота |
 | `app/api/summary` | Генерация AI-сводки недели (OpenRouter) |
 | `app/api/month-summary` | Генерация AI-итогов месяца |
 | `app/api/projects/[id]/summary` | AI-статус проекта за последние недели |
 | `app/api/export` | Экспорт в Markdown: `?weekId=...` или `?month=YYYY-MM` |
 | `app/api/cron/summary` | Cron: авто-сводка недели (пятница вечером) |
 | `app/api/cron/remind` | Cron: напоминание не сдавшим отчёт (четверг) |
+| `app/api/telegram/webhook` | Приём апдейтов бота (привязка, /report, /status) |
+| `app/api/telegram/setup` | Разовая регистрация webhook + команд (Bearer CRON_SECRET) |
 | `lib/auth.ts` | Конфиг Auth.js (Credentials + allowlist) |
-| `lib/openrouter.ts` | Вызов OpenRouter + промпты (неделя, проект) |
+| `lib/openrouter.ts` | Вызов OpenRouter + промпты (неделя, проект, месяц, разбор отчёта) |
 | `lib/summary.ts` | Генерация сводки недели (общая для API и cron) |
+| `lib/reports.ts` | Сохранение отчёта (общее для веб-формы и бота) |
+| `lib/telegram.ts` | Клиент Telegram Bot API |
+| `lib/bot.ts` | Логика бота: привязка, приём отчёта, статус |
 | `lib/notify.ts` | Уведомления: Telegram и/или webhook |
+| `lib/analytics.ts` | Сбор данных для страницы аналитики |
 | `lib/weeks.ts` | Текущая рабочая неделя и подписи дат |
 | `prisma/schema.prisma` | Модель данных |
 | `prisma/seed.ts` | Реальные отчёты команды (июнь 2026) |
@@ -107,9 +115,32 @@
 Уведомления шлются в настроенные каналы: Telegram (`TELEGRAM_BOT_TOKEN` +
 `TELEGRAM_CHAT_ID`) и/или webhook `NOTIFY_WEBHOOK_URL` (POST `{"text": ...}`,
 совместим со Slack/Mattermost). Если каналы не настроены, cron отработает без
-отправки. Напоминание дополнительно уходит **лично** тем не сдавшим, у кого в
-админке заполнен Telegram chat_id (нужен тот же бот; chat_id сотрудник может
-узнать, написав боту, — id придёт в `getUpdates`).
+отправки. Напоминание дополнительно уходит **лично** тем не сдавшим, у кого
+привязан Telegram (см. ниже).
+
+## Telegram-бот
+
+Бот шлёт напоминания/сводки и принимает отчёт прямо из чата.
+
+**Как пользуется сотрудник:** «Настройки» → «Подключить Telegram» → открывает
+бота по ссылке и жмёт Start (аккаунт привязывается по одноразовому коду). Дальше
+в боте: `/report` — отправить отчёт (описываете неделю **одним сообщением**,
+OpenRouter структурирует его по проектам, вы подтверждаете кнопкой), `/status` —
+сдан ли отчёт, `/help` — справка.
+
+**Переменные окружения:** `TELEGRAM_BOT_TOKEN` (от @BotFather),
+`TELEGRAM_BOT_USERNAME` (без `@`, для deep-link привязки),
+`TELEGRAM_WEBHOOK_SECRET` (случайная строка — проверка подлинности webhook).
+
+**Подключение после деплоя** (разово; webhook нельзя навести на localhost):
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://<адрес-деплоя>/api/telegram/setup
+```
+
+Роут вызывает `setWebhook` (с секретом) и регистрирует команды меню. Апдейты
+приходят на `/api/telegram/webhook`, который проверяет заголовок
+`X-Telegram-Bot-Api-Secret-Token`.
 
 ## Деплой на Vercel
 

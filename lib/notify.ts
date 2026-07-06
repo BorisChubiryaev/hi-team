@@ -2,6 +2,8 @@
 // Настраивается через env; если ничего не настроено — уведомления
 // просто не отправляются (cron при этом отработает штатно).
 
+import { sendMessage } from "@/lib/telegram";
+
 type Channel = "telegram" | "webhook";
 
 /** Шлёт сообщение в конкретный Telegram-чат. true = отправлено. */
@@ -9,19 +11,8 @@ export async function sendTelegram(
   chatId: string,
   text: string,
 ): Promise<boolean> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token || !chatId) return false;
-
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
-  });
-  if (!res.ok) {
-    console.error(`Telegram sendMessage: ${res.status} ${await res.text()}`);
-    return false;
-  }
-  return true;
+  if (!chatId) return false;
+  return sendMessage(chatId, text);
 }
 
 /**

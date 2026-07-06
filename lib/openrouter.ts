@@ -225,3 +225,68 @@ export async function summarizeMonth(
     { role: "user", content: buildMonthPrompt(input) },
   ]);
 }
+
+// ---------------------------------------------------------------------------
+// Разбор свободного текста отчёта (для Telegram-бота) в структуру проектов
+// ---------------------------------------------------------------------------
+
+const PARSE_SYSTEM_PROMPT = `Ты разбираешь свободное сообщение сотрудника о рабочей неделе в структурированный отчёт по проектам.
+
+Верни СТРОГО JSON — массив объектов вида:
+[{"name": "...", "done": "...", "blockers": "...", "plans": "..."}]
+
+Правила:
+- Один объект на проект/направление. Если проект не назван явно — используй "name": "Общее".
+- "done" — что сделано, "blockers" — что мешает (пусто, если нет), "plans" — планы на следующую неделю (пусто, если нет).
+- Опирайся только на текст, ничего не выдумывай. Сохраняй формулировки автора, только приводи в порядок.
+- Никакого текста вне JSON, без пояснений, без markdown-ограждений.`;
+
+/** Достаёт JSON-массив из ответа модели (снимает ```-ограждения и мусор по краям). */
+function extractJsonArray(text: string): unknown {
+  let s = text.trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) s = fence[1].trim();
+  const start = s.indexOf("[");
+  const end = s.lastIndexOf("]");
+  if (start !== -1 && end !== -1 && end > start) s = s.slice(start, end + 1);
+  return JSON.parse(s);
+}
+
+export type ParsedProject = {
+  name: string;
+  done: string;
+  blockers: string;
+  plans: string;
+};
+
+/**
+ * Превращает свободный текст в список проектов. При сбое разбора возвращает
+ * один проект «Общее» со всем текстом в «Сделано» — чтобы бот не терял ввод.
+ */
+export async function parseReportText(text: string): Promise<ParsedProject[]> {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  try {
+    const { content } = await callOpenRouter([
+      { role: "system", content: PARSE_SYSTEM_PROMPT },
+      { role: "user", content: text },
+    ]);
+    const parsed = extractJsonArray(content);
+    if (Array.isArray(parsed)) {
+      const projects = parsed
+        .map((p) => {
+          const o = (p ?? {}) as Record<string, unknown>;
+          return {
+            name: str(o.name) || "Общее",
+            done: str(o.done),
+            blockers: str(o.blockers),
+            plans: str(o.plans),
+          };
+        })
+        .filter((p) => p.done || p.blockers || p.plans);
+      if (projects.length > 0) return projects;
+    }
+  } catch (e) {
+    console.error("parseReportText:", e instanceof Error ? e.message : e);
+  }
+  return [{ name: "Общее", done: text.trim(), blockers: "", plans: "" }];
+}
