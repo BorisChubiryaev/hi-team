@@ -7,7 +7,14 @@ export default function Header({
   isLead = false,
 }: {
   email?: string | null;
-  active: "dashboard" | "report" | "projects" | "monthly" | "analytics" | "admin";
+  active:
+    | "dashboard"
+    | "report"
+    | "projects"
+    | "monthly"
+    | "analytics"
+    | "admin"
+    | "settings";
   isLead?: boolean;
 }) {
   return (
@@ -32,9 +39,17 @@ export default function Header({
         </nav>
         <div className="ml-auto flex items-center gap-3">
           {email && (
-            <span className="hidden text-sm text-slate-500 sm:inline dark:text-slate-400">
+            <Link
+              href="/settings"
+              title="Настройки"
+              className={`hidden text-sm transition sm:inline ${
+                active === "settings"
+                  ? "font-medium text-blue-700 dark:text-blue-300"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
               {email}
-            </span>
+            </Link>
           )}
           <form
             action={async () => {
