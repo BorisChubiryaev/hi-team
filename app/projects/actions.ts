@@ -63,6 +63,26 @@ export async function renameProject(
 }
 
 /**
+ * Удаляет проект. Строки отчётов сохраняются: их projectId обнуляется
+ * (onDelete: SetNull в схеме), поэтому история и снимки имён не теряются —
+ * такие строки просто перестают быть привязаны к сущности проекта. Только LEAD.
+ */
+export async function deleteProject(id: string): Promise<ActionResult> {
+  await requireLead();
+
+  const project = await prisma.project.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!project) return { ok: false, error: "Проект не найден" };
+
+  await prisma.project.delete({ where: { id } });
+
+  revalidateProjects();
+  return { ok: true };
+}
+
+/**
  * Сливает проект-дубль в целевой: строки отчётов перепривязываются и
  * получают имя целевого проекта, дубль удаляется. AI-сводка целевого
  * проекта сбрасывается — она посчитана по неполным данным. Только LEAD.

@@ -1,19 +1,21 @@
-import Link from "next/link";
 import Header from "@/components/Header";
+import AnalyticsFilters from "@/components/AnalyticsFilters";
 import ColumnChart from "@/components/charts/ColumnChart";
 import HBarChart from "@/components/charts/HBarChart";
 import Heatmap from "@/components/charts/Heatmap";
 import { getAnalytics } from "@/lib/analytics";
 import { requireDbUser } from "@/lib/auth";
 import { shortWeekLabel } from "@/lib/weeks";
+import type { ProjectStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-const RANGES = [
-  { key: "8", label: "8 недель", weeks: 8 },
-  { key: "12", label: "12 недель", weeks: 12 },
-  { key: "all", label: "Всё время", weeks: 0 },
-] as const;
+const DEFAULT_WEEKS = 12;
+const VALID_STATUSES: ProjectStatus[] = ["ACTIVE", "PAUSED", "DONE"];
+
+function firstParam(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
 
 export default async function AnalyticsPage({
   searchParams,
@@ -23,10 +25,25 @@ export default async function AnalyticsPage({
   const me = await requireDbUser();
 
   const params = await searchParams;
-  const requested = Array.isArray(params.range) ? params.range[0] : params.range;
-  const range = RANGES.find((r) => r.key === requested) ?? RANGES[1];
+  const all = firstParam(params.all) === "1";
+  const weeksRaw = Number(firstParam(params.weeks));
+  const weeks =
+    Number.isFinite(weeksRaw) && weeksRaw > 0
+      ? Math.min(520, Math.floor(weeksRaw))
+      : DEFAULT_WEEKS;
+  const userId = firstParam(params.user) || undefined;
+  const projectId = firstParam(params.project) || undefined;
+  const statusRaw = firstParam(params.status);
+  const status = VALID_STATUSES.includes(statusRaw as ProjectStatus)
+    ? (statusRaw as ProjectStatus)
+    : undefined;
 
-  const a = await getAnalytics(range.weeks);
+  const a = await getAnalytics({
+    weeksLimit: all ? 0 : weeks,
+    userId,
+    projectId,
+    status,
+  });
   const withShort = (points: { label: string; value: number }[]) =>
     points.map((p) => ({ ...p, short: shortWeekLabel(p.label) }));
 
@@ -68,22 +85,16 @@ export default async function AnalyticsPage({
           />
         </div>
 
-        {/* Период — скоупит все графики ниже */}
-        <div className="mb-4 flex flex-wrap items-center gap-1.5">
-          {RANGES.map((r) => (
-            <Link
-              key={r.key}
-              href={`/analytics?range=${r.key}`}
-              className={`rounded-full px-3 py-1.5 text-sm transition ${
-                r.key === range.key
-                  ? "bg-ink font-medium text-card"
-                  : "border border-line bg-card text-muted hover:bg-panel hover:text-ink"
-              }`}
-            >
-              {r.label}
-            </Link>
-          ))}
-        </div>
+        {/* Фильтры — скоупят все графики ниже */}
+        <AnalyticsFilters
+          users={a.options.users}
+          projects={a.options.projects}
+          weeks={weeks}
+          all={all}
+          userId={userId}
+          projectId={projectId}
+          status={status}
+        />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard

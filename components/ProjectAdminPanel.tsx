@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { mergeProjects, renameProject } from "@/app/projects/actions";
+import {
+  deleteProject,
+  mergeProjects,
+  renameProject,
+} from "@/app/projects/actions";
 
 export default function ProjectAdminPanel({
   projectId,
@@ -25,6 +29,22 @@ export default function ProjectAdminPanel({
       const res = await renameProject(projectId, name);
       if (!res.ok) setError(res.error);
       else router.refresh();
+    });
+  }
+
+  function onDelete() {
+    if (
+      !window.confirm(
+        `Удалить проект «${projectName}»? Отчёты сохранятся, но перестанут быть привязаны к этому проекту (история строк не теряется). Действие необратимо.`,
+      )
+    ) {
+      return;
+    }
+    setError("");
+    startTransition(async () => {
+      const res = await deleteProject(projectId);
+      if (!res.ok) setError(res.error);
+      else router.push("/projects");
     });
   }
 
@@ -97,6 +117,20 @@ export default function ProjectAdminPanel({
         Слияние переносит все упоминания в выбранный проект и удаляет текущий.
         Используйте для дублей вида «Дешборд X» / «Дэшборд X».
       </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4">
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={pending}
+          className="rounded-full border border-danger/40 px-4 py-2 text-sm font-medium text-danger transition hover:bg-danger-bg disabled:opacity-50"
+        >
+          Удалить проект
+        </button>
+        <span className="text-xs text-muted">
+          Отчёты сохранятся — строки просто отвяжутся от проекта.
+        </span>
+      </div>
 
       {error && <p className="mt-2 text-sm text-danger">{error}</p>}
     </div>

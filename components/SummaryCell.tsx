@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Markdown from "@/components/Markdown";
 
 export default function SummaryCell({
   weekId,
@@ -41,9 +42,7 @@ export default function SummaryCell({
   return (
     <div className="flex h-full flex-col gap-2">
       {content ? (
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">
-          {content}
-        </p>
+        <Markdown>{content}</Markdown>
       ) : (
         <p className="text-sm text-faint">Сводка ещё не сгенерирована.</p>
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Markdown from "@/components/Markdown";
 
 export default function MonthSummaryPanel({
   month,
@@ -71,9 +72,9 @@ export default function MonthSummaryPanel({
 
       {content ? (
         <>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink">
-            {content}
-          </p>
+          <div className="mt-3">
+            <Markdown>{content}</Markdown>
+          </div>
           {generatedAt && (
             <p className="mt-2 text-[11px] text-faint">
               Сгенерировано: {generatedAt}
