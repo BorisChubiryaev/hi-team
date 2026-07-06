@@ -5,6 +5,11 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL =
   process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
 
+// Ограничиваем длину ответа: без max_tokens OpenRouter резервирует полное окно
+// модели (десятки тысяч токенов) и падает с 402, если на балансе меньше кредитов.
+// Наши сводки короткие — 2048 токенов с запасом хватает.
+const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS) || 2048;
+
 const SYSTEM_PROMPT = `Ты — ассистент, который готовит краткую деловую сводку по еженедельным отчётам команды (аналитика данных и веб-разработка) для руководителя.
 
 Пиши строго по-русски, по делу, без воды. На основе отчётов сотрудников за неделю сформируй сводку по следующей структуре:
@@ -86,6 +91,7 @@ async function callOpenRouter(
     body: JSON.stringify({
       model: DEFAULT_MODEL,
       temperature: 0.3,
+      max_tokens: MAX_TOKENS,
       messages,
     }),
   });
