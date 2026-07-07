@@ -86,8 +86,9 @@ export async function setWebhook(
 export async function setMyCommands(): Promise<unknown> {
   return call("setMyCommands", {
     commands: [
-      { command: "report", description: "Отправить недельный отчёт" },
+      { command: "report", description: "Заполнить недельный отчёт по шагам" },
       { command: "status", description: "Мой статус за неделю" },
+      { command: "cancel", description: "Прервать заполнение отчёта" },
       { command: "help", description: "Помощь" },
     ],
   });

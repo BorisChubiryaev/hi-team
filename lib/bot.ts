@@ -3,14 +3,32 @@
 // хранится в БД (TelegramDialog), т.к. serverless без общей памяти.
 
 import { prisma } from "@/lib/db";
-import { parseReportText, type ParsedProject } from "@/lib/openrouter";
-import { saveUserReport } from "@/lib/reports";
+import { saveUserReport, type ProjectInput } from "@/lib/reports";
 import {
   answerCallbackQuery,
   editMessageText,
   sendMessage,
 } from "@/lib/telegram";
-import { currentWeekRange, formatWeekLabel, isoDate } from "@/lib/weeks";
+import {
+  currentWeekRange,
+  EDITABLE_WEEKS,
+  formatWeekLabel,
+  isoDate,
+  recentWeeks,
+} from "@/lib/weeks";
+
+// Шаги пошагового мастера отчёта (состояние в TelegramDialog.state).
+const STEP = {
+  WEEK: "g_week",
+  NAME: "g_name",
+  DONE: "g_done",
+  BLOCKERS: "g_blockers",
+  PLANS: "g_plans",
+} as const;
+const FLOW_STATES: string[] = Object.values(STEP);
+
+// Черновик мастера: уже добавленные проекты + текущий заполняемый.
+type Draft = { projects: ProjectInput[]; cur: Partial<ProjectInput> };
 
 type IncomingMessage = {
   chat: { id: number; type?: string; title?: string };
@@ -32,8 +50,9 @@ export type Update = {
 const HELP = [
   "Я бот команды hi-team. Что умею:",
   "",
-  "/report — отправить недельный отчёт (просто опишите неделю одним сообщением, я структурирую)",
+  "/report — заполнить недельный отчёт по шагам (проект → сделано → блокеры → планы)",
   "/status — сдан ли мой отчёт за текущую неделю",
+  "/cancel — прервать заполнение отчёта",
   "/help — эта справка",
 ].join("\n");
 
@@ -49,16 +68,37 @@ async function linkedUser(chatId: number) {
   return user && user.active ? user : null;
 }
 
-function previewText(projects: ParsedProject[], weekLabel: string): string {
-  const lines = [`Ваш отчёт за неделю ${weekLabel}:`, ""];
-  projects.forEach((p, i) => {
-    lines.push(`${i + 1}. ${p.name}`);
-    if (p.done) lines.push(`   Сделано: ${p.done}`);
-    if (p.blockers) lines.push(`   Блокеры: ${p.blockers}`);
-    if (p.plans) lines.push(`   Планы: ${p.plans}`);
+/** Читает черновик мастера отчёта из БД (или null, если диалога нет). */
+async function loadFlow(chatId: number): Promise<{
+  state: string;
+  weekStartIso: string | null;
+  draft: Draft;
+} | null> {
+  const d = await prisma.telegramDialog.findUnique({
+    where: { chatId: String(chatId) },
   });
-  lines.push("", "Сохранить?");
-  return lines.join("\n");
+  if (!d) return null;
+  let draft: Draft = { projects: [], cur: {} };
+  if (d.draft) {
+    try {
+      draft = JSON.parse(d.draft) as Draft;
+    } catch {
+      draft = { projects: [], cur: {} };
+    }
+  }
+  return { state: d.state, weekStartIso: d.weekStartIso, draft };
+}
+
+async function saveFlow(
+  chatId: number,
+  state: string,
+  weekStartIso: string | null,
+  draft: Draft,
+) {
+  await setDialog(chatId, state, {
+    weekStartIso,
+    draft: JSON.stringify(draft),
+  });
 }
 
 async function setDialog(
@@ -183,6 +223,8 @@ async function handleHere(msg: IncomingMessage) {
   );
 }
 
+const CANCEL_BTN = { text: "✖️ Отмена", callback_data: "gcancel" };
+
 async function handleReport(chatId: number) {
   const user = await linkedUser(chatId);
   if (!user) {
@@ -192,15 +234,135 @@ async function handleReport(chatId: number) {
     );
     return;
   }
-  const { start, end } = currentWeekRange();
-  await setDialog(chatId, "awaiting_report", { weekStartIso: isoDate(start) });
+
+  await saveFlow(chatId, STEP.WEEK, null, { projects: [], cur: {} });
+  const weeks = recentWeeks(EDITABLE_WEEKS);
+  const buttons = weeks.map((w, i) => [
+    {
+      text: i === 0 ? `${w.label} (текущая)` : w.label,
+      callback_data: `gw:${isoDate(w.start)}`,
+    },
+  ]);
+  buttons.push([CANCEL_BTN]);
+  await sendMessage(chatId, "За какую неделю заполняем отчёт?", buttons);
+}
+
+/** Пользователь выбрал неделю (кнопка) — начинаем ввод проектов. */
+async function startProjects(
+  chatId: number,
+  messageId: number,
+  iso: string,
+) {
+  const week = recentWeeks(EDITABLE_WEEKS).find((w) => isoDate(w.start) === iso);
+  if (!week) {
+    await editMessageText(chatId, messageId, "Эту неделю уже нельзя заполнить.");
+    await clearDialog(chatId);
+    return;
+  }
+  await saveFlow(chatId, STEP.NAME, iso, { projects: [], cur: {} });
+  await editMessageText(chatId, messageId, `📝 Отчёт за неделю ${week.label}`);
   await sendMessage(
     chatId,
-    `Опишите одним сообщением, что сделали за неделю ${formatWeekLabel(
-      start,
-      end,
-    )}, какие блокеры и планы. Я структурирую по проектам и покажу на подтверждение.`,
+    "Название первого проекта или направления:",
+    [[CANCEL_BTN]],
   );
+}
+
+/** Сохраняет собранный черновик как отчёт. */
+async function saveGuidedReport(
+  chatId: number,
+  messageId: number,
+  cbId: string,
+) {
+  const flow = await loadFlow(chatId);
+  const user = await linkedUser(chatId);
+  if (!user || !flow || !flow.weekStartIso) {
+    await answerCallbackQuery(cbId, "Нечего сохранять");
+    await editMessageText(chatId, messageId, "Черновик не найден. Заново — /report.");
+    await clearDialog(chatId);
+    return;
+  }
+  if (flow.draft.projects.length === 0) {
+    await answerCallbackQuery(cbId, "Добавьте хотя бы один проект");
+    return;
+  }
+  try {
+    const count = await saveUserReport(
+      user.id,
+      flow.weekStartIso,
+      flow.draft.projects,
+    );
+    const week = recentWeeks(EDITABLE_WEEKS).find(
+      (w) => isoDate(w.start) === flow.weekStartIso,
+    );
+    await clearDialog(chatId);
+    await answerCallbackQuery(cbId, "Сохранено");
+    await editMessageText(
+      chatId,
+      messageId,
+      `✅ Отчёт за неделю ${week?.label ?? ""} сохранён: ${count} проект(ов). Спасибо!`,
+    );
+  } catch (e) {
+    console.error("bot guided save:", e instanceof Error ? e.message : e);
+    await answerCallbackQuery(cbId, "Ошибка");
+    await editMessageText(
+      chatId,
+      messageId,
+      "Не удалось сохранить отчёт. Попробуйте позже или заполните на сайте.",
+    );
+  }
+}
+
+/** /cancel — прервать мастер отчёта. */
+async function handleCancel(chatId: number) {
+  const flow = await loadFlow(chatId);
+  await clearDialog(chatId);
+  await sendMessage(
+    chatId,
+    flow && FLOW_STATES.includes(flow.state)
+      ? "Заполнение отменено. Начать заново — /report."
+      : "Нечего отменять. Начать отчёт — /report.",
+  );
+}
+
+/** /done — сохранить собранный отчёт (альтернатива кнопке «Готово»). */
+async function handleDoneCommand(chatId: number) {
+  const flow = await loadFlow(chatId);
+  const user = await linkedUser(chatId);
+  if (
+    !user ||
+    !flow ||
+    !FLOW_STATES.includes(flow.state) ||
+    !flow.weekStartIso ||
+    flow.draft.projects.length === 0
+  ) {
+    await sendMessage(
+      chatId,
+      "Пока нечего сохранять. Заполните отчёт по шагам — /report.",
+    );
+    return;
+  }
+  try {
+    const count = await saveUserReport(
+      user.id,
+      flow.weekStartIso,
+      flow.draft.projects,
+    );
+    const week = recentWeeks(EDITABLE_WEEKS).find(
+      (w) => isoDate(w.start) === flow.weekStartIso,
+    );
+    await clearDialog(chatId);
+    await sendMessage(
+      chatId,
+      `✅ Отчёт за неделю ${week?.label ?? ""} сохранён: ${count} проект(ов). Спасибо!`,
+    );
+  } catch (e) {
+    console.error("bot /done save:", e instanceof Error ? e.message : e);
+    await sendMessage(
+      chatId,
+      "Не удалось сохранить отчёт. Попробуйте позже или заполните на сайте.",
+    );
+  }
 }
 
 async function handleStatus(chatId: number) {
@@ -235,36 +397,73 @@ async function handleStatus(chatId: number) {
 // --- свободный текст (контент отчёта) --------------------------------------
 
 async function handleText(chatId: number, text: string) {
-  const dialog = await prisma.telegramDialog.findUnique({
-    where: { chatId: String(chatId) },
-  });
+  const flow = await loadFlow(chatId);
 
-  if (dialog?.state === "awaiting_report") {
+  if (flow && FLOW_STATES.includes(flow.state)) {
     const user = await linkedUser(chatId);
     if (!user) {
       await clearDialog(chatId);
       await sendMessage(chatId, `Аккаунт не привязан: ${appUrl()}/settings`);
       return;
     }
-    await sendMessage(chatId, "Разбираю отчёт…");
-    const projects = await parseReportText(text);
-    const weekStartIso = dialog.weekStartIso ?? isoDate(currentWeekRange().start);
-    const target = currentWeekRange();
-    await setDialog(chatId, "confirming", {
-      weekStartIso,
-      draft: JSON.stringify(projects),
-    });
-    await sendMessage(
-      chatId,
-      previewText(projects, formatWeekLabel(target.start, target.end)),
-      [
-        [
-          { text: "✅ Сохранить", callback_data: "save" },
-          { text: "✖️ Отмена", callback_data: "cancel" },
-        ],
-      ],
-    );
-    return;
+
+    const value = text.trim();
+    const norm = value === "-" ? "" : value; // «-» = пропустить поле
+
+    switch (flow.state) {
+      case STEP.WEEK:
+        await sendMessage(
+          chatId,
+          "Выберите неделю кнопкой выше 👆 или /cancel, чтобы отменить.",
+        );
+        return;
+
+      case STEP.NAME:
+        flow.draft.cur = { name: value };
+        await saveFlow(chatId, STEP.DONE, flow.weekStartIso, flow.draft);
+        await sendMessage(
+          chatId,
+          `Проект «${value}». Что сделано за неделю? (или «-», если нечего)`,
+        );
+        return;
+
+      case STEP.DONE:
+        flow.draft.cur.done = norm;
+        await saveFlow(chatId, STEP.BLOCKERS, flow.weekStartIso, flow.draft);
+        await sendMessage(chatId, "Блокеры? (или «-», если нет)");
+        return;
+
+      case STEP.BLOCKERS:
+        flow.draft.cur.blockers = norm;
+        await saveFlow(chatId, STEP.PLANS, flow.weekStartIso, flow.draft);
+        await sendMessage(chatId, "Планы на следующую неделю? (или «-»)");
+        return;
+
+      case STEP.PLANS: {
+        flow.draft.cur.plans = norm;
+        const cur = flow.draft.cur;
+        flow.draft.projects.push({
+          name: cur.name ?? "",
+          done: cur.done ?? "",
+          blockers: cur.blockers ?? "",
+          plans: cur.plans ?? "",
+        });
+        flow.draft.cur = {};
+        await saveFlow(chatId, STEP.NAME, flow.weekStartIso, flow.draft);
+        await sendMessage(
+          chatId,
+          `✅ Проект «${cur.name}» добавлен (всего ${flow.draft.projects.length}).\n\n` +
+            "Название следующего проекта — или нажмите «Готово».",
+          [
+            [
+              { text: "✅ Готово (сохранить)", callback_data: "gdone" },
+              CANCEL_BTN,
+            ],
+          ],
+        );
+        return;
+      }
+    }
   }
 
   const user = await linkedUser(chatId);
@@ -286,45 +485,27 @@ async function handleCallback(cb: CallbackQuery) {
     return;
   }
 
-  const dialog = await prisma.telegramDialog.findUnique({
-    where: { chatId: String(chatId) },
-  });
+  const data = cb.data ?? "";
 
-  if (cb.data === "cancel") {
+  if (data === "gcancel") {
     await clearDialog(chatId);
     await answerCallbackQuery(cb.id, "Отменено");
-    await editMessageText(chatId, messageId, "Отчёт отменён. Отправить заново — /report.");
+    await editMessageText(
+      chatId,
+      messageId,
+      "Заполнение отменено. Начать заново — /report.",
+    );
     return;
   }
 
-  if (cb.data === "save") {
-    const user = await linkedUser(chatId);
-    if (!user || dialog?.state !== "confirming" || !dialog.draft) {
-      await answerCallbackQuery(cb.id, "Нечего сохранять");
-      await editMessageText(chatId, messageId, "Черновик не найден. Отправить заново — /report.");
-      return;
-    }
-    try {
-      const projects = JSON.parse(dialog.draft) as ParsedProject[];
-      const weekStartIso =
-        dialog.weekStartIso ?? isoDate(currentWeekRange().start);
-      const count = await saveUserReport(user.id, weekStartIso, projects);
-      await clearDialog(chatId);
-      await answerCallbackQuery(cb.id, "Сохранено");
-      await editMessageText(
-        chatId,
-        messageId,
-        `Отчёт сохранён (${count} проект(ов)). Спасибо!`,
-      );
-    } catch (e) {
-      console.error("bot save:", e instanceof Error ? e.message : e);
-      await answerCallbackQuery(cb.id, "Ошибка");
-      await editMessageText(
-        chatId,
-        messageId,
-        "Не удалось сохранить отчёт. Попробуйте позже или заполните на сайте.",
-      );
-    }
+  if (data.startsWith("gw:")) {
+    await answerCallbackQuery(cb.id);
+    await startProjects(chatId, messageId, data.slice(3));
+    return;
+  }
+
+  if (data === "gdone") {
+    await saveGuidedReport(chatId, messageId, cb.id);
     return;
   }
 
@@ -368,6 +549,12 @@ export async function handleUpdate(update: Update): Promise<void> {
         return;
       case "/status":
         await handleStatus(chatId);
+        return;
+      case "/cancel":
+        await handleCancel(chatId);
+        return;
+      case "/done":
+        await handleDoneCommand(chatId);
         return;
       case "/help":
         await sendMessage(chatId, HELP);
