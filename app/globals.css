@@ -153,6 +153,18 @@ body {
   }
 }
 
+/* Раскрывающиеся карточки ленты (<details>): убираем нативный маркер,
+   поворачиваем стрелку при открытии. */
+summary::-webkit-details-marker {
+  display: none;
+}
+.feed-chevron {
+  transition: transform 0.15s ease;
+}
+details[open] > summary .feed-chevron {
+  transform: rotate(90deg);
+}
+
 /* --- Палитра графиков (dataviz) — тёплая, единая серия оранжевого ------- */
 .viz-root {
   --viz-surface: #ffffff;
