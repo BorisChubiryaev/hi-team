@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import type { Role } from "@prisma/client";
 import { requireLead } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { TIMEZONES } from "@/lib/bot-constants";
+import { sendGroupRoster, sendReminders } from "@/lib/reminders";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -90,6 +92,71 @@ export async function setUserTelegram(
   });
   revalidatePath("/admin");
   return { ok: true };
+}
+
+/** Сохраняет настройки бота (расписание напоминаний и групповой сводки). */
+export async function updateBotSettings(input: {
+  reminderEnabled: boolean;
+  reminderDow: number;
+  reminderHour: number;
+  groupEnabled: boolean;
+  groupDow: number;
+  groupHour: number;
+  timezone: string;
+}): Promise<ActionResult> {
+  await requireLead();
+
+  const clampDow = (n: number) => Math.min(7, Math.max(1, Math.floor(n)));
+  const clampHour = (n: number) => Math.min(23, Math.max(0, Math.floor(n)));
+  const timezone = TIMEZONES.some((t) => t.value === input.timezone)
+    ? input.timezone
+    : "Europe/Moscow";
+
+  const data = {
+    reminderEnabled: input.reminderEnabled,
+    reminderDow: clampDow(input.reminderDow),
+    reminderHour: clampHour(input.reminderHour),
+    groupEnabled: input.groupEnabled,
+    groupDow: clampDow(input.groupDow),
+    groupHour: clampHour(input.groupHour),
+    timezone,
+  };
+
+  await prisma.botSettings.upsert({
+    where: { id: "singleton" },
+    update: data,
+    create: { id: "singleton", ...data },
+  });
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** Немедленно отправить личные напоминания (тест/ручной запуск). Только LEAD. */
+export async function sendReminderNow(): Promise<{ message: string }> {
+  await requireLead();
+  const r = await sendReminders();
+  return {
+    message: r.allDone
+      ? "Все уже сдали — уведомил руководителей."
+      : `Отправлено напоминаний: ${r.notified} из ${r.missing} не сдавших (у остальных не привязан Telegram).`,
+  };
+}
+
+/** Немедленно отправить сводку в общий чат. Только LEAD. */
+export async function sendGroupRosterNow(): Promise<{ message: string }> {
+  await requireLead();
+  const s = await prisma.botSettings.findUnique({ where: { id: "singleton" } });
+  if (!s?.groupChatId) {
+    return {
+      message: "Групповой чат не подключён. Добавьте бота в чат и отправьте /here.",
+    };
+  }
+  const ok = await sendGroupRoster(s.groupChatId);
+  return {
+    message: ok
+      ? "Сводка отправлена в общий чат."
+      : "Не удалось отправить — проверьте, что бот всё ещё в чате.",
+  };
 }
 
 /** Добавляет почту в allowlist. */

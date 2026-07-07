@@ -1,0 +1,24 @@
+name: hi-team bot cron
+
+# Бесплатная замена почасовому крону Vercel (на плане Hobby крон можно
+# запускать только раз в сутки). Раз в час дёргаем /api/cron/bot, а роут сам
+# решает — слать ли напоминания/сводку по настройкам из «Команды».
+#
+# Нужны два секрета репозитория (Settings → Secrets and variables → Actions):
+#   APP_URL      — адрес деплоя без слэша в конце, напр. https://hi-team.vercel.app
+#   CRON_SECRET  — то же значение, что и в переменных окружения Vercel
+
+on:
+  schedule:
+    - cron: "0 * * * *" # каждый час (время UTC)
+  workflow_dispatch: {} # плюс кнопка «Run workflow» для ручного запуска
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /api/cron/bot
+        run: |
+          curl -fsS -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/bot"

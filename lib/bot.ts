@@ -13,8 +13,8 @@ import {
 import { currentWeekRange, formatWeekLabel, isoDate } from "@/lib/weeks";
 
 type IncomingMessage = {
-  chat: { id: number };
-  from?: { username?: string };
+  chat: { id: number; type?: string; title?: string };
+  from?: { id?: number; username?: string };
   text?: string;
 };
 
@@ -127,6 +127,60 @@ async function handleStart(msg: IncomingMessage, arg: string) {
       `Привет! Чтобы пользоваться ботом, привяжите аккаунт: откройте «Настройки» в приложении (${appUrl()}/settings) и нажмите «Подключить Telegram».`,
     );
   }
+}
+
+/** /here — регистрирует групповой чат для сводок. Только руководитель. */
+async function handleHere(msg: IncomingMessage) {
+  const chatId = msg.chat.id;
+  const inGroup =
+    msg.chat.type === "group" || msg.chat.type === "supergroup";
+
+  if (!inGroup) {
+    await sendMessage(
+      chatId,
+      "Эту команду нужно отправить в групповом чате, куда добавлен бот.",
+    );
+    return;
+  }
+
+  // В группе chat_id отправителя равен его user_id, который совпадает с
+  // telegramChatId привязанного аккаунта (личный чат). Так опознаём лида.
+  const fromId = msg.from?.id;
+  const lead = fromId
+    ? await prisma.user.findUnique({
+        where: { telegramChatId: String(fromId) },
+      })
+    : null;
+
+  if (!lead || lead.role !== "LEAD" || !lead.active) {
+    await sendMessage(
+      chatId,
+      "Подключить чат может только руководитель с привязанным аккаунтом. " +
+        "Откройте бота в личке и привяжите аккаунт в «Настройках».",
+    );
+    return;
+  }
+
+  await prisma.botSettings.upsert({
+    where: { id: "singleton" },
+    update: {
+      groupChatId: String(chatId),
+      groupTitle: msg.chat.title ?? null,
+      groupEnabled: true,
+    },
+    create: {
+      id: "singleton",
+      groupChatId: String(chatId),
+      groupTitle: msg.chat.title ?? null,
+      groupEnabled: true,
+    },
+  });
+
+  await sendMessage(
+    chatId,
+    "✅ Готово! Этот чат подключён для сводок по отчётам. " +
+      "День и время настраиваются в разделе «Команда» на сайте.",
+  );
 }
 
 async function handleReport(chatId: number) {
@@ -289,11 +343,22 @@ export async function handleUpdate(update: Update): Promise<void> {
   if (!msg || typeof msg.text !== "string") return;
   const text = msg.text.trim();
   const chatId = msg.chat.id;
+  const inGroup =
+    msg.chat.type === "group" || msg.chat.type === "supergroup";
 
   if (text.startsWith("/")) {
     const [cmdRaw, ...rest] = text.split(/\s+/);
     const cmd = cmdRaw.split("@")[0].toLowerCase(); // /report@Bot -> /report
     const arg = rest.join(" ").trim();
+
+    // /here работает в группе; остальные команды в группе игнорируем,
+    // чтобы бот не флудил в общий чат.
+    if (cmd === "/here") {
+      await handleHere(msg);
+      return;
+    }
+    if (inGroup) return;
+
     switch (cmd) {
       case "/start":
         await handleStart(msg, arg);
@@ -313,5 +378,7 @@ export async function handleUpdate(update: Update): Promise<void> {
     }
   }
 
+  // Произвольный текст обрабатываем только в личке (в группе не мешаем).
+  if (inGroup) return;
   await handleText(chatId, text);
 }

@@ -45,6 +45,28 @@ model TelegramLink {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+// Настройки бота (единственная запись id="singleton"): расписание личных
+// напоминаний не сдавшим и групповой сводки «кто сдал / кто нет».
+// Время задаётся в timezone; почасовой крон проверяет совпадение.
+model BotSettings {
+  id              String   @id @default("singleton")
+  // Личные напоминания в ЛС тем, кто не сдал отчёт.
+  reminderEnabled Boolean  @default(false)
+  reminderDow     Int      @default(4) // день недели 1=Пн … 7=Вс
+  reminderHour    Int      @default(10) // час 0–23 в timezone
+  // Сводка-ростер в общий групповой чат (регистрируется командой /here).
+  groupChatId     String?
+  groupTitle      String?
+  groupEnabled    Boolean  @default(false)
+  groupDow        Int      @default(5)
+  groupHour       Int      @default(12)
+  timezone        String   @default("Europe/Moscow")
+  // Дедуп запусков крона: YYYY-MM-DD (локальная дата) последнего срабатывания.
+  lastReminderKey String?
+  lastGroupKey    String?
+  updatedAt       DateTime @updatedAt
+}
+
 // Состояние диалога бота по чату (serverless — храним в БД, не в памяти).
 model TelegramDialog {
   chatId       String   @id

@@ -1,9 +1,6 @@
 {
+  "buildCommand": "prisma generate && prisma db push && next build",
   "crons": [
-    {
-      "path": "/api/cron/remind",
-      "schedule": "0 7 * * 4"
-    },
     {
       "path": "/api/cron/summary",
       "schedule": "0 15 * * 5"
