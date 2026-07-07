@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Markdown from "@/components/Markdown";
+import EmailSummaryButton from "@/components/EmailSummaryButton";
 
 export default function ProjectSummaryPanel({
   projectId,
@@ -39,21 +40,29 @@ export default function ProjectSummaryPanel({
 
   return (
     <div className="rounded-xl border border-cream-ink/15 bg-cream/50 p-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold text-cream-ink">AI-статус проекта</h2>
-        <button
-          type="button"
-          onClick={generate}
-          disabled={loading || !hasEntries}
-          title={!hasEntries ? "По проекту нет упоминаний в отчётах" : undefined}
-          className="btn btn-primary btn-sm"
-        >
-          {loading
-            ? "Генерация…"
-            : content
-              ? "Обновить статус"
-              : "Сгенерировать статус"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={generate}
+            disabled={loading || !hasEntries}
+            title={!hasEntries ? "По проекту нет упоминаний в отчётах" : undefined}
+            className="btn btn-primary btn-sm"
+          >
+            {loading
+              ? "Генерация…"
+              : content
+                ? "Обновить статус"
+                : "Сгенерировать статус"}
+          </button>
+          {content && (
+            <EmailSummaryButton
+              subject="AI-статус проекта — hi-team"
+              content={content}
+            />
+          )}
+        </div>
       </div>
 
       {error && <p className="mt-2 text-xs text-danger">{error}</p>}

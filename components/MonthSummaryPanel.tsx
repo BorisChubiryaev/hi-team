@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Markdown from "@/components/Markdown";
+import EmailSummaryButton from "@/components/EmailSummaryButton";
 
 export default function MonthSummaryPanel({
   month,
@@ -64,6 +65,12 @@ export default function MonthSummaryPanel({
             >
               Экспорт .md
             </a>
+          )}
+          {content && (
+            <EmailSummaryButton
+              subject="AI-итоги месяца — hi-team"
+              content={content}
+            />
           )}
         </div>
       </div>

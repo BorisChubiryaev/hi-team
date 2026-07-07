@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Markdown from "@/components/Markdown";
+import EmailSummaryButton from "@/components/EmailSummaryButton";
 
 export default function SummaryCell({
   weekId,
@@ -69,6 +70,10 @@ export default function SummaryCell({
           </span>
         )}
       </div>
+
+      {content && (
+        <EmailSummaryButton subject="AI-сводка недели — hi-team" content={content} />
+      )}
     </div>
   );
 }
