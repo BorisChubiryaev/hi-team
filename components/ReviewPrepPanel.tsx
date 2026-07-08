@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useState, useTransition } from "react";
 import Markdown from "@/components/Markdown";
+import { sendReviewToTelegram } from "@/app/review/actions";
 
 export default function ReviewPrepPanel({
   start,
@@ -11,6 +13,7 @@ export default function ReviewPrepPanel({
   initialFocus,
   initialGeneratedAt,
   hasData,
+  telegramConnected,
 }: {
   start: string;
   end: string;
@@ -19,6 +22,7 @@ export default function ReviewPrepPanel({
   initialFocus: string;
   initialGeneratedAt: string | null;
   hasData: boolean;
+  telegramConnected: boolean;
 }) {
   const [focus, setFocus] = useState(initialFocus);
   const [content, setContent] = useState(initialContent ?? "");
@@ -26,6 +30,22 @@ export default function ReviewPrepPanel({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [tgState, setTgState] = useState<"idle" | "sent">("idle");
+  const [tgPending, startTg] = useTransition();
+
+  function sendToTelegram() {
+    setError("");
+    setTgState("idle");
+    startTg(async () => {
+      const res = await sendReviewToTelegram(label, content);
+      if (res.ok) {
+        setTgState("sent");
+        setTimeout(() => setTgState("idle"), 3000);
+      } else {
+        setError(res.error);
+      }
+    });
+  }
 
   async function generate() {
     setLoading(true);
@@ -116,6 +136,24 @@ export default function ReviewPrepPanel({
             >
               Скачать .md
             </button>
+            {telegramConnected ? (
+              <button
+                type="button"
+                onClick={sendToTelegram}
+                disabled={tgPending}
+                className="btn btn-ghost btn-sm"
+              >
+                {tgPending
+                  ? "Отправляю…"
+                  : tgState === "sent"
+                    ? "Отправлено в Telegram ✓"
+                    : "В Telegram"}
+              </button>
+            ) : (
+              <Link href="/settings" className="btn btn-ghost btn-sm">
+                Подключить Telegram
+              </Link>
+            )}
           </>
         )}
         {generatedAt && !loading && (

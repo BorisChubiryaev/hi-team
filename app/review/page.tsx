@@ -151,6 +151,7 @@ export default async function ReviewPage({
               : null
           }
           hasData={data.hasData}
+          telegramConnected={Boolean(me.telegramChatId)}
         />
       </main>
     </>
