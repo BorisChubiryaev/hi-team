@@ -45,8 +45,9 @@ export default async function DashboardPage({
   const { start } = currentWeekRange();
 
   const [users, weeks, totalWeeks, currentWeek] = await Promise.all([
+    // Колонки — только те, от кого ждём отчёт (Руководитель не пишет отчёты).
     prisma.user.findMany({
-      where: { active: true },
+      where: { active: true, role: { not: "DIRECTOR" } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.week.findMany({
@@ -96,7 +97,7 @@ export default async function DashboardPage({
 
   return (
     <>
-      <Header email={me.email} active="dashboard" isLead={me.role === "LEAD"} />
+      <Header email={me.email} active="dashboard" role={me.role} />
       <main className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>

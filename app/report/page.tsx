@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import Header from "@/components/Header";
 import ReportForm from "@/components/ReportForm";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { writesReports } from "@/lib/roles";
 import { EDITABLE_WEEKS, isoDate, recentWeeks } from "@/lib/weeks";
 import type { ProjectInput } from "@/app/report/actions";
 
@@ -12,6 +14,8 @@ export default async function ReportPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const user = await requireDbUser();
+  // Руководитель отчёты не пишет — на дашборд.
+  if (!writesReports(user.role)) redirect("/dashboard");
 
   const weeks = recentWeeks(EDITABLE_WEEKS);
   const params = await searchParams;
@@ -78,7 +82,7 @@ export default async function ReportPage({
       <Header
         email={user.email}
         active="report"
-        isLead={user.role === "LEAD"}
+        role={user.role}
       />
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <div className="mb-6">

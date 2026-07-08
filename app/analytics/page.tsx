@@ -52,7 +52,7 @@ export default async function AnalyticsPage({
       <Header
         email={me.email}
         active="analytics"
-        isLead={me.role === "LEAD"}
+        role={me.role}
       />
       <main className="viz-root mx-auto max-w-5xl px-4 py-6 sm:px-6">
         <div className="mb-5">

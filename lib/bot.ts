@@ -4,6 +4,7 @@
 
 import { prisma } from "@/lib/db";
 import { saveUserReport, type ProjectInput } from "@/lib/reports";
+import { canManage, writesReports } from "@/lib/roles";
 import {
   answerCallbackQuery,
   editMessageText,
@@ -192,7 +193,7 @@ async function handleHere(msg: IncomingMessage) {
       })
     : null;
 
-  if (!lead || lead.role !== "LEAD" || !lead.active) {
+  if (!lead || !canManage(lead.role) || !lead.active) {
     await sendMessage(
       chatId,
       "Подключить чат может только руководитель с привязанным аккаунтом. " +
@@ -231,6 +232,13 @@ async function handleReport(chatId: number) {
     await sendMessage(
       chatId,
       `Сначала привяжите аккаунт в «Настройках»: ${appUrl()}/settings`,
+    );
+    return;
+  }
+  if (!writesReports(user.role)) {
+    await sendMessage(
+      chatId,
+      "Ваша роль (Руководитель) не заполняет еженедельные отчёты.",
     );
     return;
   }

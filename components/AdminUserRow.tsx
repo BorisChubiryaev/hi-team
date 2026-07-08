@@ -8,6 +8,9 @@ import {
   setUserRole,
   setUserTelegram,
 } from "@/app/admin/actions";
+import { ROLE_LABELS } from "@/lib/roles";
+
+const ROLE_OPTIONS: Role[] = ["MEMBER", "LEAD", "DIRECTOR"];
 
 export default function AdminUserRow({
   user,
@@ -83,8 +86,11 @@ export default function AdminUserRow({
           className={inputClass}
           aria-label="Роль"
         >
-          <option value="MEMBER">Сотрудник</option>
-          <option value="LEAD">Руководитель</option>
+          {ROLE_OPTIONS.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABELS[r]}
+            </option>
+          ))}
         </select>
       </td>
       <td className="p-3">
