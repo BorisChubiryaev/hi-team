@@ -48,18 +48,37 @@ export async function saveUserReport(
     }))
     .filter((p) => p.name || p.done || p.blockers || p.plans);
 
-  const rows = await Promise.all(
-    cleaned.map(async (p) => ({
-      ...p,
-      projectId: await ensureProject(p.name),
-    })),
-  );
+  // Резолвим id проекта по одному разу на уникальное имя, последовательно —
+  // так исключаем гонку двойного create одного и того же нового проекта.
+  const idByName = new Map<string, string | null>();
+  for (const p of cleaned) {
+    if (p.name && !idByName.has(p.name)) {
+      idByName.set(p.name, await ensureProject(p.name));
+    }
+  }
 
-  await prisma.report.upsert({
+  // Оболочку отчёта создаём/находим отдельно, строки пишем через createMany —
+  // без вложенной транзакционной записи (надёжнее на пуле Neon).
+  const report = await prisma.report.upsert({
     where: { userId_weekId: { userId, weekId: week.id } },
-    update: { projects: { deleteMany: {}, create: rows } },
-    create: { userId, weekId: week.id, projects: { create: rows } },
+    update: {},
+    create: { userId, weekId: week.id },
   });
 
-  return rows.length;
+  await prisma.$transaction([
+    prisma.reportProject.deleteMany({ where: { reportId: report.id } }),
+    prisma.reportProject.createMany({
+      data: cleaned.map((p) => ({
+        reportId: report.id,
+        projectId: p.name ? (idByName.get(p.name) ?? null) : null,
+        name: p.name,
+        done: p.done,
+        blockers: p.blockers,
+        plans: p.plans,
+        order: p.order,
+      })),
+    }),
+  ]);
+
+  return cleaned.length;
 }

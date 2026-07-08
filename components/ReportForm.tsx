@@ -21,6 +21,7 @@ export default function ReportForm({
     initialProjects.length ? initialProjects : [{ ...EMPTY }],
   );
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -40,10 +41,15 @@ export default function ReportForm({
   }
 
   function onSave() {
+    setError("");
     startTransition(async () => {
-      await saveReport(weekStartIso, projects);
-      setSaved(true);
-      router.refresh();
+      const res = await saveReport(weekStartIso, projects);
+      if (res.ok) {
+        setSaved(true);
+        router.refresh();
+      } else {
+        setError(res.error);
+      }
     });
   }
 
@@ -121,6 +127,12 @@ export default function ReportForm({
           <span className="text-sm text-success">Сохранено ✓</span>
         )}
       </div>
+
+      {error && (
+        <p className="rounded-lg border border-danger/25 bg-danger-bg px-4 py-3 text-sm text-danger">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
