@@ -12,6 +12,7 @@ export default function Header({
   active:
     | "dashboard"
     | "report"
+    | "review"
     | "projects"
     | "monthly"
     | "analytics"
@@ -32,6 +33,9 @@ export default function Header({
           <Tab href="/dashboard" label="Отчёты" active={active === "dashboard"} />
           {writesReports(role) && (
             <Tab href="/report" label="Мой отчёт" active={active === "report"} />
+          )}
+          {writesReports(role) && (
+            <Tab href="/review" label="К встрече" active={active === "review"} />
           )}
           <Tab href="/projects" label="Проекты" active={active === "projects"} />
           <Tab href="/monthly" label="Месяц" active={active === "monthly"} />
