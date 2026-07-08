@@ -13,9 +13,6 @@
     "db:backfill-projects": "tsx prisma/backfill-projects.ts",
     "db:studio": "prisma studio"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",
     "@prisma/client": "^6.19.3",
