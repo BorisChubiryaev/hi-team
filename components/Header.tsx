@@ -1,10 +1,12 @@
 import Link from "next/link";
+import type { Role } from "@prisma/client";
 import { signOut } from "@/lib/auth";
+import { canManage, writesReports } from "@/lib/roles";
 
 export default function Header({
   email,
   active,
-  isLead = false,
+  role = "MEMBER",
 }: {
   email?: string | null;
   active:
@@ -15,7 +17,7 @@ export default function Header({
     | "analytics"
     | "admin"
     | "settings";
-  isLead?: boolean;
+  role?: Role;
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
@@ -28,7 +30,9 @@ export default function Header({
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <Tab href="/dashboard" label="Отчёты" active={active === "dashboard"} />
-          <Tab href="/report" label="Мой отчёт" active={active === "report"} />
+          {writesReports(role) && (
+            <Tab href="/report" label="Мой отчёт" active={active === "report"} />
+          )}
           <Tab href="/projects" label="Проекты" active={active === "projects"} />
           <Tab href="/monthly" label="Месяц" active={active === "monthly"} />
           <Tab
@@ -36,7 +40,7 @@ export default function Header({
             label="Аналитика"
             active={active === "analytics"}
           />
-          {isLead && (
+          {canManage(role) && (
             <Tab href="/admin" label="Команда" active={active === "admin"} />
           )}
         </nav>

@@ -5,6 +5,7 @@ import ProjectStatusSelect from "@/components/ProjectStatusSelect";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PROJECT_STATUS_LABELS } from "@/lib/projects";
+import { canManage } from "@/lib/roles";
 import { currentWeekRange } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function ProjectsPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const me = await requireDbUser();
-  const isLead = me.role === "LEAD";
+  const isLead = canManage(me.role);
 
   const params = await searchParams;
   const statusFilter = firstParam(params.status) ?? "all";
@@ -119,7 +120,7 @@ export default async function ProjectsPage({
 
   return (
     <>
-      <Header email={me.email} active="projects" isLead={isLead} />
+      <Header email={me.email} active="projects" role={me.role} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">

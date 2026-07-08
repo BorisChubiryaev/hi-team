@@ -73,8 +73,9 @@ export async function getAnalytics(
       },
     }),
     prisma.project.groupBy({ by: ["status"], _count: true }),
+    // Дисциплина считается только по пишущим отчёты (без Руководителя).
     prisma.user.findMany({
-      where: { active: true },
+      where: { active: true, role: { not: "DIRECTOR" } },
       select: { id: true, name: true, email: true },
       orderBy: { createdAt: "asc" },
     }),

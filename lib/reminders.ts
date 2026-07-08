@@ -3,6 +3,7 @@
 
 import { prisma } from "@/lib/db";
 import { sendTelegram } from "@/lib/notify";
+import { MANAGER_ROLES } from "@/lib/roles";
 import { currentWeekRange, formatWeekLabel } from "@/lib/weeks";
 
 type UserLite = {
@@ -30,8 +31,9 @@ export async function getWeekStatus(): Promise<{
   const label = formatWeekLabel(start, end);
 
   const [users, week] = await Promise.all([
+    // Отчёт ждём только от пишущих его ролей (Руководитель не пишет).
     prisma.user.findMany({
-      where: { active: true },
+      where: { active: true, role: { not: "DIRECTOR" } },
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, email: true, telegramChatId: true },
     }),
@@ -66,7 +68,11 @@ export async function sendReminders(): Promise<{
 
   if (missing.length === 0) {
     const leads = await prisma.user.findMany({
-      where: { role: "LEAD", active: true, telegramChatId: { not: null } },
+      where: {
+        role: { in: MANAGER_ROLES },
+        active: true,
+        telegramChatId: { not: null },
+      },
       select: { telegramChatId: true },
     });
     let notified = 0;

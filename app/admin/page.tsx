@@ -2,13 +2,13 @@ import Header from "@/components/Header";
 import AdminUserRow from "@/components/AdminUserRow";
 import AllowlistManager from "@/components/AllowlistManager";
 import BotSettingsPanel from "@/components/BotSettingsPanel";
-import { requireLead } from "@/lib/auth";
+import { requireManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const me = await requireLead();
+  const me = await requireManager();
 
   const [users, allowed, bot] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
@@ -18,7 +18,7 @@ export default async function AdminPage() {
 
   return (
     <>
-      <Header email={me.email} active="admin" isLead />
+      <Header email={me.email} active="admin" role={me.role} />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">

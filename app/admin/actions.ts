@@ -2,37 +2,46 @@
 
 import { revalidatePath } from "next/cache";
 import type { Role } from "@prisma/client";
-import { requireLead } from "@/lib/auth";
+import { requireManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { TIMEZONES } from "@/lib/bot-constants";
 import { sendGroupRoster, sendReminders } from "@/lib/reminders";
+import { canManage, MANAGER_ROLES } from "@/lib/roles";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ROLES: Role[] = ["MEMBER", "LEAD", "DIRECTOR"];
 
-/** Меняет роль. Нельзя снять роль с последнего лида — иначе админка недоступна никому. */
+/** Меняет роль. Нельзя убрать последнего управляющего — иначе админка недоступна никому. */
 export async function setUserRole(
   userId: string,
   role: Role,
 ): Promise<ActionResult> {
-  await requireLead();
-  if (role !== "LEAD" && role !== "MEMBER") {
+  await requireManager();
+  if (!ROLES.includes(role)) {
     return { ok: false, error: "Некорректная роль" };
   }
 
-  if (role === "MEMBER") {
-    const leads = await prisma.user.count({
-      where: { role: "LEAD", active: true },
-    });
+  // Смена, отнимающая права управления, — проверяем, что останется хоть один управляющий.
+  if (!canManage(role)) {
     const target = await prisma.user.findUnique({ where: { id: userId } });
-    if (target?.role === "LEAD" && leads <= 1) {
-      return { ok: false, error: "Нельзя снять роль с последнего руководителя" };
+    if (target && canManage(target.role) && target.active) {
+      const managers = await prisma.user.count({
+        where: { role: { in: MANAGER_ROLES }, active: true },
+      });
+      if (managers <= 1) {
+        return {
+          ok: false,
+          error: "Нельзя убрать роль у последнего управляющего",
+        };
+      }
     }
   }
 
   await prisma.user.update({ where: { id: userId }, data: { role } });
   revalidatePath("/admin");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
 
@@ -41,7 +50,7 @@ export async function setUserActive(
   userId: string,
   active: boolean,
 ): Promise<ActionResult> {
-  const me = await requireLead();
+  const me = await requireManager();
   if (userId === me.id && !active) {
     return { ok: false, error: "Нельзя деактивировать себя" };
   }
@@ -58,7 +67,7 @@ export async function setUserActive(
  * но историю сохранить» используйте деактивацию. Только LEAD.
  */
 export async function deleteUser(userId: string): Promise<ActionResult> {
-  const me = await requireLead();
+  const me = await requireManager();
   if (userId === me.id) {
     return { ok: false, error: "Нельзя удалить себя" };
   }
@@ -66,10 +75,12 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
   const target = await prisma.user.findUnique({ where: { id: userId } });
   if (!target) return { ok: false, error: "Пользователь не найден" };
 
-  if (target.role === "LEAD") {
-    const leads = await prisma.user.count({ where: { role: "LEAD" } });
-    if (leads <= 1) {
-      return { ok: false, error: "Нельзя удалить последнего руководителя" };
+  if (canManage(target.role)) {
+    const managers = await prisma.user.count({
+      where: { role: { in: MANAGER_ROLES } },
+    });
+    if (managers <= 1) {
+      return { ok: false, error: "Нельзя удалить последнего управляющего" };
     }
   }
 
@@ -84,7 +95,7 @@ export async function setUserTelegram(
   userId: string,
   chatId: string,
 ): Promise<ActionResult> {
-  await requireLead();
+  await requireManager();
   const value = chatId.trim();
   await prisma.user.update({
     where: { id: userId },
@@ -104,7 +115,7 @@ export async function updateBotSettings(input: {
   groupHour: number;
   timezone: string;
 }): Promise<ActionResult> {
-  await requireLead();
+  await requireManager();
 
   const clampDow = (n: number) => Math.min(7, Math.max(1, Math.floor(n)));
   const clampHour = (n: number) => Math.min(23, Math.max(0, Math.floor(n)));
@@ -133,7 +144,7 @@ export async function updateBotSettings(input: {
 
 /** Немедленно отправить личные напоминания (тест/ручной запуск). Только LEAD. */
 export async function sendReminderNow(): Promise<{ message: string }> {
-  await requireLead();
+  await requireManager();
   const r = await sendReminders();
   return {
     message: r.allDone
@@ -144,7 +155,7 @@ export async function sendReminderNow(): Promise<{ message: string }> {
 
 /** Немедленно отправить сводку в общий чат. Только LEAD. */
 export async function sendGroupRosterNow(): Promise<{ message: string }> {
-  await requireLead();
+  await requireManager();
   const s = await prisma.botSettings.findUnique({ where: { id: "singleton" } });
   if (!s?.groupChatId) {
     return {
@@ -161,7 +172,7 @@ export async function sendGroupRosterNow(): Promise<{ message: string }> {
 
 /** Добавляет почту в allowlist. */
 export async function addAllowedEmail(email: string): Promise<ActionResult> {
-  await requireLead();
+  await requireManager();
   const e = email.trim().toLowerCase();
   if (!EMAIL_RE.test(e)) return { ok: false, error: "Некорректная почта" };
 
@@ -176,7 +187,7 @@ export async function addAllowedEmail(email: string): Promise<ActionResult> {
 
 /** Убирает почту из allowlist (существующий пользователь при этом остаётся). */
 export async function removeAllowedEmail(id: string): Promise<ActionResult> {
-  await requireLead();
+  await requireManager();
   await prisma.allowedEmail.delete({ where: { id } });
   revalidatePath("/admin");
   return { ok: true };

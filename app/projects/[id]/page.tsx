@@ -8,6 +8,7 @@ import ColumnChart from "@/components/charts/ColumnChart";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PROJECT_STATUS_LABELS } from "@/lib/projects";
+import { canManage } from "@/lib/roles";
 import { isoDate, recentWeeks, shortWeekLabel } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function ProjectPage({
   params: Promise<{ id: string }>;
 }) {
   const me = await requireDbUser();
-  const isLead = me.role === "LEAD";
+  const isLead = canManage(me.role);
   const { id } = await params;
 
   const project = await prisma.project.findUnique({
@@ -73,7 +74,7 @@ export default async function ProjectPage({
 
   return (
     <>
-      <Header email={me.email} active="projects" isLead={isLead} />
+      <Header email={me.email} active="projects" role={me.role} />
       <main className="viz-root mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <Link

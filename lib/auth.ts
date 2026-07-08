@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { canManage } from "@/lib/roles";
 
 /** Почты команды из env ALLOWED_EMAILS (fallback, пока таблица allowlist пуста). */
 export function allowedEmailsFromEnv(): string[] {
@@ -87,9 +88,9 @@ export async function requireDbUser() {
   return user;
 }
 
-/** Только для руководителя (LEAD); остальных — на дашборд. */
-export async function requireLead() {
+/** Только для управляющих ролей (LEAD/DIRECTOR); остальных — на дашборд. */
+export async function requireManager() {
   const user = await requireDbUser();
-  if (user.role !== "LEAD") redirect("/dashboard");
+  if (!canManage(user.role)) redirect("/dashboard");
   return user;
 }

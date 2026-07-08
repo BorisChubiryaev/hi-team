@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { ProjectStatus } from "@prisma/client";
-import { requireLead } from "@/lib/auth";
+import { requireManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normalizeProjectName } from "@/lib/projects";
 
@@ -19,7 +19,7 @@ function revalidateProjects(id?: string) {
 
 /** Меняет статус проекта (Активен / На паузе / Завершён). Только LEAD. */
 export async function setProjectStatus(id: string, status: ProjectStatus) {
-  await requireLead();
+  await requireManager();
   if (!STATUSES.includes(status)) throw new Error("Некорректный статус");
 
   await prisma.project.update({ where: { id }, data: { status } });
@@ -34,7 +34,7 @@ export async function renameProject(
   id: string,
   newName: string,
 ): Promise<ActionResult> {
-  await requireLead();
+  await requireManager();
 
   const name = normalizeProjectName(newName);
   if (!name) return { ok: false, error: "Имя не может быть пустым" };
@@ -68,7 +68,7 @@ export async function renameProject(
  * такие строки просто перестают быть привязаны к сущности проекта. Только LEAD.
  */
 export async function deleteProject(id: string): Promise<ActionResult> {
-  await requireLead();
+  await requireManager();
 
   const project = await prisma.project.findUnique({
     where: { id },
@@ -91,7 +91,7 @@ export async function mergeProjects(
   sourceId: string,
   targetId: string,
 ): Promise<ActionResult> {
-  await requireLead();
+  await requireManager();
 
   if (sourceId === targetId) {
     return { ok: false, error: "Нельзя слить проект сам с собой" };
