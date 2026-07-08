@@ -6,7 +6,7 @@ import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { writesReports } from "@/lib/roles";
 import { EDITABLE_WEEKS, isoDate, recentWeeks } from "@/lib/weeks";
-import type { ProjectInput } from "@/app/report/actions";
+import type { ProjectInput } from "@/lib/reports";
 
 export default async function ReportPage({
   searchParams,

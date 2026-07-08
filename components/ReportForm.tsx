@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveReport, type ProjectInput } from "@/app/report/actions";
+import { saveReport } from "@/app/report/actions";
+import type { ProjectInput } from "@/lib/reports";
 
 const EMPTY: ProjectInput = { name: "", done: "", blockers: "", plans: "" };
 

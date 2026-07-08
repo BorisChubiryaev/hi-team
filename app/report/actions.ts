@@ -5,9 +5,11 @@ import { requireUser } from "@/lib/auth";
 import { saveUserReport, type ProjectInput } from "@/lib/reports";
 import { currentWeekRange, isoDate } from "@/lib/weeks";
 
-export type { ProjectInput };
-
-export type SaveResult = { ok: true } | { ok: false; error: string };
+// ВАЖНО: файл с "use server" должен экспортировать только async-функции.
+// Типы отсюда НЕ реэкспортируем — реэкспорт импортированного типа Turbopack
+// превращает в рантайм-ссылку на стёртый тип и роняет модуль с ReferenceError
+// при загрузке. ProjectInput потребители берут из "@/lib/reports".
+type SaveResult = { ok: true } | { ok: false; error: string };
 
 /** Управляющие исключения Next (redirect/notFound) нельзя глотать — пробрасываем. */
 function isNextControlFlow(e: unknown): boolean {
