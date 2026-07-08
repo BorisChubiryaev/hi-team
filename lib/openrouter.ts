@@ -296,3 +296,87 @@ export async function parseReportText(text: string): Promise<ParsedProject[]> {
   }
   return [{ name: "Общее", done: text.trim(), blockers: "", plans: "" }];
 }
+
+// ---------------------------------------------------------------------------
+// Подготовка сотрудника к встрече 1:1 с руководителем (личное резюме за период)
+// ---------------------------------------------------------------------------
+
+const REVIEW_SYSTEM_PROMPT = `Ты — карьерный ассистент. Помогаешь сотруднику (аналитика данных / веб-разработка) подготовиться к ежеквартальной встрече один на один с руководителем. На основе его СОБСТВЕННЫХ недельных отчётов за период собери материалы, чтобы он выступил уверенно, честно и по делу.
+
+Пиши строго по-русски, от первого лица («я сделал», «мне удалось»), уверенно, но без хвастовства и воды. Опирайся ТОЛЬКО на факты из отчётов — ничего не выдумывай и не преувеличивай. Где возможно, переводи процесс в результат и пользу для команды/бизнеса. Если данных мало — честно отметь это и подскажи, что стоит добавить к разговору.
+
+Ответ — в Markdown, ровно с такими разделами (заголовки уровня ##):
+
+## Главные достижения
+3–6 пунктов с акцентом на результат и ценность, а не на рутину. Объединяй связанное.
+
+## Вклад по проектам
+По каждому значимому проекту — 1–2 фразы: что я двигал и к чему это привело.
+
+## Преодолённые сложности
+Блокеры и как я с ними справлялся (это показывает умение решать проблемы). Если блокер не закрыт — скажи честно и предложи план.
+
+## Рост и развитие
+Новые области, навыки и зоны ответственности, освоенные за период.
+
+## Планы и амбиции на следующий квартал
+Куда хочу расти и что готов взять на себя (на основе планов из отчётов).
+
+## Что обсудить с руководителем
+3–5 готовых реплик и вопросов для разговора: где нужна поддержка, ресурсы, обратная связь или развитие. Формулируй так, чтобы можно было произнести вслух.
+
+Если в конце дан «Личный акцент» — учти его при расстановке приоритетов, но не в ущерб честности.`;
+
+export type ReviewInput = {
+  periodLabel: string;
+  userName: string;
+  focus?: string;
+  stats: {
+    weeksReported: number;
+    weeksTotal: number;
+    projects: number;
+    blockers: number;
+  };
+  projects: {
+    name: string;
+    weeks: {
+      weekLabel: string;
+      done: string;
+      blockers: string;
+      plans: string;
+    }[];
+  }[];
+};
+
+function buildReviewPrompt(input: ReviewInput): string {
+  const lines: string[] = [
+    `Сотрудник: ${input.userName}. Период: ${input.periodLabel}.`,
+    `За период: сдано отчётов за ${input.stats.weeksReported} из ${input.stats.weeksTotal} недель; проектов — ${input.stats.projects}; записей с блокерами — ${input.stats.blockers}.`,
+    "",
+    "Выдержки из его недельных отчётов, сгруппированные по проектам (от старых недель к новым):",
+    "",
+  ];
+  for (const p of input.projects) {
+    lines.push(`### Проект: ${p.name || "—"}`);
+    for (const w of p.weeks) {
+      lines.push(`Неделя ${w.weekLabel}:`);
+      if (w.done.trim()) lines.push(`  Сделано: ${w.done.trim()}`);
+      if (w.blockers.trim()) lines.push(`  Блокеры: ${w.blockers.trim()}`);
+      if (w.plans.trim()) lines.push(`  Планы: ${w.plans.trim()}`);
+    }
+    lines.push("");
+  }
+  if (input.focus?.trim()) {
+    lines.push(`Личный акцент от сотрудника: ${input.focus.trim()}`);
+  }
+  return lines.join("\n");
+}
+
+export async function writeReviewPrep(
+  input: ReviewInput,
+): Promise<{ content: string; model: string }> {
+  return callOpenRouter([
+    { role: "system", content: REVIEW_SYSTEM_PROMPT },
+    { role: "user", content: buildReviewPrompt(input) },
+  ]);
+}

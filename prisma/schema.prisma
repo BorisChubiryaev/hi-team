@@ -34,6 +34,27 @@ model User {
 
   reports      Report[]
   telegramLink TelegramLink?
+  reviewPreps  ReviewPrep[]
+}
+
+// Личная подготовка сотрудника к встрече 1:1 с руководителем: AI-резюме
+// собственной работы за выбранный период. Виден только автору.
+model ReviewPrep {
+  id          String   @id @default(cuid())
+  userId      String
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+  label       String // напр. «II квартал 2026»
+  focus       String?  @db.Text // необязательный акцент от сотрудника
+  content     String   @db.Text
+  model       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodStart, periodEnd])
+  @@index([userId])
 }
 
 // Одноразовый код привязки Telegram: пользователь запускает бота с /start <code>.
