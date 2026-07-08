@@ -28,11 +28,21 @@ export async function ensureProject(
   });
   if (existing) return existing.id;
 
-  const created = await db.project.create({
-    data: { name: normalized },
-    select: { id: true },
-  });
-  return created.id;
+  try {
+    const created = await db.project.create({
+      data: { name: normalized },
+      select: { id: true },
+    });
+    return created.id;
+  } catch {
+    // Параллельное создание того же имени (уникальный индекс) — перечитываем.
+    const again = await db.project.findFirst({
+      where: { name: { equals: normalized, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (again) return again.id;
+    throw new Error(`Не удалось создать проект «${normalized}»`);
+  }
 }
 
 export const PROJECT_STATUS_LABELS: Record<string, string> = {
