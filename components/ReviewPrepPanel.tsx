@@ -103,10 +103,10 @@ export default function ReviewPrepPanel({
         <textarea
           value={focus}
           onChange={(e) => setFocus(e.target.value)}
-          rows={2}
+          rows={4}
           maxLength={500}
           placeholder="Например: хочу показать вклад в проект X и попросить наставничество"
-          className="input resize-y"
+          className="input mt-1 min-h-24 resize-y"
         />
       </label>
 
