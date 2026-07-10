@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import Header from "@/components/Header";
+import ReviewPeriodPicker from "@/components/ReviewPeriodPicker";
 import ReviewPrepPanel from "@/components/ReviewPrepPanel";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -48,6 +48,11 @@ export default async function ReviewPage({
   const startIso = isoDate(selected.start);
   const endIso = isoDate(selected.end);
 
+  // Кварталы слева направо: от старых к текущему (текущий — справа).
+  const quartersChrono = [...quarters]
+    .reverse()
+    .map((q) => ({ key: q.key, label: q.label }));
+
   const [data, existing] = await Promise.all([
     getReviewData(me.id, selected.start, selected.end),
     prisma.reviewPrep.findUnique({
@@ -61,12 +66,10 @@ export default async function ReviewPage({
     }),
   ]);
 
-  const isQuarterSelected = (p: Period) => p.key === selected.key;
-
   return (
     <>
       <Header email={me.email} active="review" role={me.role} />
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Подготовка к встрече с руководителем
@@ -78,51 +81,15 @@ export default async function ReviewPage({
           </p>
         </div>
 
-        {/* Пресеты кварталов */}
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          {quarters.map((q) => (
-            <Link
-              key={q.key}
-              href={`/review?period=${q.key}`}
-              className={`rounded-full px-3 py-1.5 text-sm transition ${
-                isQuarterSelected(q)
-                  ? "bg-ink font-medium text-card"
-                  : "border border-line bg-card text-muted hover:bg-panel hover:text-ink"
-              }`}
-            >
-              {q.label}
-            </Link>
-          ))}
+        {/* Выбор периода: кварталы + произвольный диапазон */}
+        <div className="mb-5">
+          <ReviewPeriodPicker
+            quarters={quartersChrono}
+            selectedKey={selected.key}
+            startIso={startIso}
+            endIso={endIso}
+          />
         </div>
-
-        {/* Произвольный период */}
-        <form
-          action="/review"
-          method="get"
-          className="mb-5 flex flex-wrap items-end gap-2"
-        >
-          <label className="text-xs text-muted">
-            С
-            <input
-              type="date"
-              name="start"
-              defaultValue={startIso}
-              className="input mt-0.5 py-1.5"
-            />
-          </label>
-          <label className="text-xs text-muted">
-            по
-            <input
-              type="date"
-              name="end"
-              defaultValue={endIso}
-              className="input mt-0.5 py-1.5"
-            />
-          </label>
-          <button type="submit" className="btn btn-ghost btn-sm">
-            Показать период
-          </button>
-        </form>
 
         {/* Факты за период */}
         <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
