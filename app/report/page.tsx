@@ -84,7 +84,7 @@ export default async function ReportPage({
         active="report"
         role={user.role}
       />
-      <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Мой отчёт

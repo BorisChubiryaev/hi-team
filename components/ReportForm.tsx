@@ -92,7 +92,7 @@ export default function ReportForm({
             )}
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="mt-4 space-y-4">
             <Field
               label="Сделано"
               value={p.done}
@@ -155,8 +155,8 @@ function Field({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        rows={5}
-        className="input mt-1 resize-y"
+        rows={4}
+        className="input mt-1 min-h-28 resize-y"
       />
     </label>
   );
