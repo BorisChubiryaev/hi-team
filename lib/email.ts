@@ -41,7 +41,8 @@ export async function sendSummaryEmail({
   markdown: string;
 }): Promise<SendResult> {
   const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
+  // App Password Gmail показывает с пробелами («abcd efgh …»); убираем их.
+  const gmailPass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
 
   try {
     const html = await renderEmailHtml(subject, markdown);
