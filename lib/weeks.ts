@@ -104,3 +104,36 @@ export function formatMonthLabel(key: string): string {
   const [year, month] = key.split("-").map(Number);
   return `${MONTHS_NOMINATIVE[(month ?? 1) - 1]} ${year}`;
 }
+
+/** Дата по-человечески в UTC, напр. «5 июля 2026». */
+export function formatDateHuman(d: Date): string {
+  return `${d.getUTCDate()} ${MONTHS_GENITIVE[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+const QUARTER_NAMES = ["I", "II", "III", "IV"];
+
+/** Диапазон квартала, в который попадает дата: { start, end, label }. */
+export function quarterRange(now: Date = new Date()): {
+  start: Date;
+  end: Date;
+  label: string;
+} {
+  const y = now.getUTCFullYear();
+  const q = Math.floor(now.getUTCMonth() / 3); // 0..3
+  const start = new Date(Date.UTC(y, q * 3, 1));
+  const end = new Date(Date.UTC(y, q * 3 + 3, 0)); // последний день квартала
+  return { start, end, label: `${QUARTER_NAMES[q]} квартал ${y}` };
+}
+
+/** Диапазон предыдущего квартала относительно даты. */
+export function previousQuarterRange(now: Date = new Date()): {
+  start: Date;
+  end: Date;
+  label: string;
+} {
+  const cur = quarterRange(now);
+  // Первый день текущего квартала минус один день → попадаем в прошлый квартал.
+  const dayBefore = new Date(cur.start);
+  dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
+  return quarterRange(dayBefore);
+}

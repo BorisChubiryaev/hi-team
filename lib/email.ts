@@ -1,6 +1,10 @@
-// Отправка писем через Resend. Ключ и from-адрес берутся из окружения и
-// никогда не уходят в браузер. Тело письма — Markdown, рендерится в HTML.
+// Отправка писем. По умолчанию — через SMTP твоего Gmail (nodemailer): это
+// позволяет слать отчёты на ЛЮБЫЕ адреса без собственного домена. Если Gmail
+// не сконфигурирован, но есть RESEND_API_KEY — используется Resend (в тестовом
+// режиме он шлёт только на адрес владельца аккаунта). Все секреты берутся из
+// окружения и никогда не уходят в браузер. Тело письма — Markdown → HTML.
 
+import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import { marked } from "marked";
 
@@ -36,29 +40,46 @@ export async function sendSummaryEmail({
   subject: string;
   markdown: string;
 }): Promise<SendResult> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return {
-      ok: false,
-      error: "Отправка почты не настроена (нет RESEND_API_KEY)",
-    };
-  }
-  const from = process.env.EMAIL_FROM || "hi-team <onboarding@resend.dev>";
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
   try {
     const html = await renderEmailHtml(subject, markdown);
-    const resend = new Resend(apiKey);
-    const { error } = await resend.emails.send({
-      from,
-      to,
-      subject,
-      html,
-      text: markdown,
-    });
-    if (error) {
-      return { ok: false, error: error.message || "Не удалось отправить письмо" };
+
+    // Основной путь: SMTP Gmail. Шлёт на любые адреса, домен не нужен.
+    if (gmailUser && gmailPass) {
+      const from = process.env.EMAIL_FROM || `hi-team <${gmailUser}>`;
+      const transport = nodemailer.createTransport({
+        service: "gmail",
+        auth: { user: gmailUser, pass: gmailPass },
+      });
+      await transport.sendMail({ from, to, subject, html, text: markdown });
+      return { ok: true };
     }
-    return { ok: true };
+
+    // Запасной путь: Resend (тестовый режим — только на адрес владельца).
+    const apiKey = process.env.RESEND_API_KEY;
+    if (apiKey) {
+      const from = process.env.EMAIL_FROM || "hi-team <onboarding@resend.dev>";
+      const resend = new Resend(apiKey);
+      const { error } = await resend.emails.send({
+        from,
+        to,
+        subject,
+        html,
+        text: markdown,
+      });
+      if (error) {
+        return { ok: false, error: error.message || "Не удалось отправить письмо" };
+      }
+      return { ok: true };
+    }
+
+    return {
+      ok: false,
+      error:
+        "Отправка почты не настроена: задайте GMAIL_USER и GMAIL_APP_PASSWORD (или RESEND_API_KEY)",
+    };
   } catch (e) {
     return {
       ok: false,
