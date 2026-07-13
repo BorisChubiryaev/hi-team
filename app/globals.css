@@ -66,6 +66,52 @@
   }
 }
 
+/* Ручной переключатель темы: атрибут data-theme на <html> перебивает
+   системную настройку выше (специфичность :root[...] выше, чем :root). */
+:root[data-theme="light"] {
+  --canvas: #fffdf9;
+  --card: #ffffff;
+  --panel: #f5f5f5;
+  --inset: #f0f0f0;
+  --cream: #fef3c7;
+  --cream-ink: #7c2d12;
+  --line: #efece5;
+  --line-strong: #e4e0d7;
+  --ink: #171717;
+  --muted: #737373;
+  --faint: #a3a3a3;
+  --accent: #ff6b1a;
+  --accent-ink: #7c2d12;
+  --success: #15803d;
+  --success-bg: #dcfce7;
+  --danger: #dc2626;
+  --danger-bg: #fee2e2;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+}
+
+:root[data-theme="dark"] {
+  --canvas: #14110d;
+  --card: #1c1813;
+  --panel: #221d17;
+  --inset: #2a241d;
+  --cream: #3a2c12;
+  --cream-ink: #fde3c0;
+  --line: #2c261f;
+  --line-strong: #39322a;
+  --ink: #f5f1ea;
+  --muted: #a8a096;
+  --faint: #7c746a;
+  --accent: #ff7d33;
+  --accent-ink: #ffd7bd;
+  --success: #4ade80;
+  --success-bg: #14321f;
+  --danger: #f87171;
+  --danger-bg: #3a1a1a;
+  --warn: #fbbf24;
+  --warn-bg: #362a12;
+}
+
 @theme inline {
   --color-canvas: var(--canvas);
   --color-card: var(--card);
@@ -194,4 +240,32 @@ details[open] > summary .feed-chevron {
     --heat-3: #c26327;
     --heat-4: #ff7d33;
   }
+}
+
+:root[data-theme="light"] .viz-root {
+  --viz-surface: #ffffff;
+  --viz-track: #f5f5f5;
+  --viz-grid: #eeeae2;
+  --viz-text-primary: #171717;
+  --viz-text-secondary: #737373;
+  --viz-text-muted: #a3a3a3;
+  --viz-series: #ff6b1a;
+  --heat-1: #ffd8bd;
+  --heat-2: #ffb184;
+  --heat-3: #ff8a4c;
+  --heat-4: #ff6b1a;
+}
+
+:root[data-theme="dark"] .viz-root {
+  --viz-surface: #1c1813;
+  --viz-track: #221d17;
+  --viz-grid: #38312a;
+  --viz-text-primary: #f5f1ea;
+  --viz-text-secondary: #a8a096;
+  --viz-text-muted: #7c746a;
+  --viz-series: #ff7d33;
+  --heat-1: #5a3a20;
+  --heat-2: #8a4f23;
+  --heat-3: #c26327;
+  --heat-4: #ff7d33;
 }

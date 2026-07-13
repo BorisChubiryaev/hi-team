@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Role } from "@prisma/client";
 import { signOut } from "@/lib/auth";
 import { canManage, writesReports } from "@/lib/roles";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Header({
   email,
@@ -17,6 +18,7 @@ export default function Header({
     | "monthly"
     | "analytics"
     | "admin"
+    | "guide"
     | "settings";
   role?: Role;
 }) {
@@ -47,8 +49,10 @@ export default function Header({
           {canManage(role) && (
             <Tab href="/admin" label="Команда" active={active === "admin"} />
           )}
+          <Tab href="/guide" label="Гид" active={active === "guide"} />
         </nav>
         <div className="ml-auto flex items-center gap-3">
+          <ThemeToggle />
           {email && (
             <Link
               href="/settings"
