@@ -74,6 +74,104 @@ const ROLES = [
   },
 ];
 
+const BEFORE = [
+  "Каждый пишет как хочет — не сравнить и не собрать.",
+  "Руководитель вручную вычитывает всех перед созвоном.",
+  "Блокеры тонут и повторяются из недели в неделю.",
+  "«Кто не сдал?» — считаем глазами.",
+];
+
+const AFTER = [
+  "Единая структура: проект → сделано / блокеры / планы.",
+  "AI-сводка недели готова в один клик.",
+  "Висящие блокеры подсвечиваются автоматически.",
+  "«Кто не сдал» — на дашборде, плюс авто-напоминание.",
+];
+
+const STEPS = [
+  {
+    n: "01",
+    title: "Сотрудник пишет отчёт",
+    desc: "Коротко по каждому проекту. Черновик предзаполнен из прошлой недели, названия проектов подсказываются. Можно прямо из Telegram — одним сообщением.",
+  },
+  {
+    n: "02",
+    title: "ИИ собирает сводку",
+    desc: "OpenRouter превращает записи в деловую выжимку недели: достижения, риски, висящие блокеры. Вызовы — на сервере, ключ не уходит в браузер.",
+  },
+  {
+    n: "03",
+    title: "Руководитель видит ясность",
+    desc: "Дашборд неделя × сотрудники, кто не сдал, AI-сводка, статусы проектов и аналитика. Экспорт в Markdown и итоги месяца — для отчёта наверх.",
+  },
+];
+
+const STACK = [
+  { k: "Frontend", v: "Next.js 16", d: "App Router, TypeScript, Tailwind v4" },
+  { k: "Auth", v: "Auth.js · NextAuth v5", d: "Credentials, JWT, bcrypt, allowlist" },
+  { k: "Данные", v: "Prisma + Neon", d: "Postgres, pooled для serverless" },
+  { k: "AI", v: "OpenRouter", d: "Серверные роуты, ключ не в браузере" },
+  { k: "Хостинг", v: "Vercel", d: "Deploy + Vercel Cron по расписанию" },
+  { k: "Бот", v: "Telegram Bot API", d: "Webhook с проверкой секрета" },
+  { k: "Почта", v: "SMTP · Nodemailer", d: "Сводки на любой адрес" },
+  { k: "Тема", v: "Campsite UI", d: "Токены, светлая и тёмная" },
+];
+
+const ROADMAP = [
+  {
+    phase: "Есть",
+    chip: "готово",
+    done: true,
+    title: "Ядро продукта",
+    desc: "Отчёты, дашборд, AI-сводки недели и месяца, проекты, роли, Telegram-бот, аналитика, подготовка к 1:1, cron-напоминания.",
+  },
+  {
+    phase: "Сейчас",
+    chip: "в работе",
+    done: false,
+    title: "Рассылка сводок на почту",
+    desc: "Отправка AI-выжимки письмом через SMTP команды — без домена, на любой адрес.",
+  },
+  {
+    phase: "Дальше",
+    chip: "план",
+    done: false,
+    title: "Глубже в аналитику и ИИ",
+    desc: "Дашборды динамики блокеров, rate-limit на AI-роуты, Q&A-чат по истории отчётов.",
+  },
+];
+
+function Check({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function Cross({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    >
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
 function Shot({
   route,
   src,
@@ -176,6 +274,69 @@ export default async function GuidePage() {
           ))}
         </div>
 
+        {/* Проблема → решение */}
+        <div className="mt-14">
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            Зачем это нужно
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Статус-митинги съедают время, а таблица в Confluence теряет контекст.
+          </p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-line bg-panel p-5">
+              <h3 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Было — свободная таблица
+              </h3>
+              <ul className="mt-4 space-y-3">
+                {BEFORE.map((t) => (
+                  <li key={t} className="flex gap-3 text-[14px] text-ink">
+                    <Cross className="mt-0.5 size-4 flex-none text-danger" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="card p-5">
+              <h3 className="font-mono text-[11px] font-semibold uppercase tracking-wider text-accent-ink">
+                Стало — hi-team
+              </h3>
+              <ul className="mt-4 space-y-3">
+                {AFTER.map((t) => (
+                  <li key={t} className="flex gap-3 text-[14px] text-ink">
+                    <Check className="mt-0.5 size-4 flex-none text-success" />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Как это работает */}
+        <div className="mt-14">
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            Как это работает
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Три шага в неделю — и картина команды собирается сама.
+          </p>
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            {STEPS.map((s) => (
+              <div key={s.n} className="card p-5">
+                <span className="font-mono text-xs font-semibold text-accent">
+                  {s.n}
+                </span>
+                <h3 className="mt-2 text-base font-semibold text-ink">
+                  {s.title}
+                </h3>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">
+                  {s.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Живые экраны */}
         <div className="mt-14">
           <h2 className="text-xl font-semibold tracking-tight text-ink">
@@ -209,6 +370,72 @@ export default async function GuidePage() {
                 <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">
                   {r.desc}
                 </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Стек */}
+        <div className="mt-14">
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            Под капотом
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Serverless на Vercel, типобезопасность на TypeScript, все AI-вызовы —
+            на сервере.
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {STACK.map((t) => (
+              <div key={t.k} className="card p-4">
+                <div className="font-mono text-[10.5px] uppercase tracking-wider text-faint">
+                  {t.k}
+                </div>
+                <div className="mt-1.5 text-[15px] font-semibold text-ink">
+                  {t.v}
+                </div>
+                <div className="mt-1 text-[12.5px] leading-snug text-muted">
+                  {t.d}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Роадмап */}
+        <div className="mt-14">
+          <h2 className="text-xl font-semibold tracking-tight text-ink">
+            Куда движемся
+          </h2>
+          <div className="mt-5 overflow-hidden rounded-xl border border-line">
+            {ROADMAP.map((r, i) => (
+              <div
+                key={r.title}
+                className={`grid grid-cols-1 gap-2 px-5 py-4 sm:grid-cols-[150px_1fr] sm:gap-6 ${
+                  i ? "border-t border-line" : ""
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[12px] uppercase tracking-wider text-accent-ink">
+                    {r.phase}
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold uppercase ${
+                      r.done
+                        ? "bg-success-bg text-success"
+                        : "bg-cream text-cream-ink"
+                    }`}
+                  >
+                    {r.chip}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-semibold text-ink">
+                    {r.title}
+                  </h3>
+                  <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
+                    {r.desc}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
