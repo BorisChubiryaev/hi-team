@@ -1,7 +1,10 @@
-// Почасовой крон бота: смотрит настройки (BotSettings) и, если по локальному
-// времени команды наступил назначенный час/день, шлёт личные напоминания и/или
-// групповой ростер. Идемпотентен: дедуп по локальной дате (не сработает дважды
-// в один день). Также поддерживает ручной прогон ?force=reminder|group.
+// Крон бота: смотрит настройки (BotSettings) и, если сегодня назначенный
+// день недели (в таймзоне команды), шлёт личные напоминания и/или групповой
+// ростер. Срабатывание — по ДНЮ, а не по точному часу: на бесплатном плане
+// Vercel крон запускается раз в сутки, поэтому час не гарантируется; время
+// отправки — это время запуска крона (см. vercel.json). Идемпотентен: дедуп
+// по локальной дате (не сработает дважды в один день). Ручной прогон:
+// ?force=reminder|group.
 
 import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron";
@@ -30,7 +33,6 @@ export async function GET(req: Request) {
   const reminderDue =
     settings.reminderEnabled &&
     dow === settings.reminderDow &&
-    hour === settings.reminderHour &&
     settings.lastReminderKey !== dateKey;
 
   if (force === "reminder" || reminderDue) {
@@ -47,7 +49,6 @@ export async function GET(req: Request) {
     settings.groupEnabled &&
     !!settings.groupChatId &&
     dow === settings.groupDow &&
-    hour === settings.groupHour &&
     settings.lastGroupKey !== dateKey;
 
   if ((force === "group" || groupDue) && settings.groupChatId) {

@@ -87,7 +87,8 @@ export default function BotSettingsPanel({
     <div className="card mt-6 p-5">
       <h2 className="font-semibold text-ink">Бот: напоминания и сводки</h2>
       <p className="mt-0.5 text-sm text-muted">
-        Расписание в выбранной таймзоне. Проверяется раз в час.
+        Срабатывает в выбранный день недели (таймзона команды). На бесплатном
+        плане Vercel — раз в сутки утром, поэтому час указывается ориентировочно.
       </p>
 
       {/* Таймзона */}
