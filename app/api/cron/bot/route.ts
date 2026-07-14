@@ -31,39 +31,67 @@ export async function GET(req: Request) {
   const force = new URL(req.url).searchParams.get("force");
   const { dow, hour, dateKey } = localParts(settings.timezone);
   const ran: Record<string, unknown> = {};
+  // Понятная причина в ответе — чтобы по логу сразу было видно, почему
+  // рассылка не ушла (день/час/дедуп), а не гадать по пустому ran.
+  const status: Record<string, string> = {};
 
-  const reminderDue =
-    settings.reminderEnabled &&
-    dow === settings.reminderDow &&
-    hour >= settings.reminderHour &&
-    settings.lastReminderKey !== dateKey;
+  // Причина «не сработало» для запланированной рассылки (день + час + дедуп).
+  function reason(
+    enabled: boolean,
+    day: number,
+    startHour: number,
+    lastKey: string | null,
+  ): string | null {
+    if (!enabled) return "выключено";
+    if (dow !== day) return `не сегодня (нужен день ${day}, сейчас ${dow})`;
+    if (hour < startHour) return `рано (нужно с ${startHour}:00, сейчас ${hour}:00)`;
+    if (lastKey === dateKey) return "уже отправлено сегодня";
+    return null; // null = пора слать
+  }
+
+  const reminderReason = reason(
+    settings.reminderEnabled,
+    settings.reminderDow,
+    settings.reminderHour,
+    settings.lastReminderKey,
+  );
+  const reminderDue = reminderReason === null;
 
   if (force === "reminder" || reminderDue) {
     ran.reminder = await sendReminders();
+    status.reminder = force === "reminder" ? "отправлено (force)" : "отправлено";
     if (reminderDue) {
       await prisma.botSettings.update({
         where: { id: "singleton" },
         data: { lastReminderKey: dateKey },
       });
     }
+  } else {
+    status.reminder = reminderReason;
   }
 
-  const groupDue =
-    settings.groupEnabled &&
-    !!settings.groupChatId &&
-    dow === settings.groupDow &&
-    hour >= settings.groupHour &&
-    settings.lastGroupKey !== dateKey;
+  const groupReason = !settings.groupChatId
+    ? "чат не подключён"
+    : reason(
+        settings.groupEnabled,
+        settings.groupDow,
+        settings.groupHour,
+        settings.lastGroupKey,
+      );
+  const groupDue = groupReason === null;
 
   if ((force === "group" || groupDue) && settings.groupChatId) {
     ran.group = await sendGroupRoster(settings.groupChatId);
+    status.group = force === "group" ? "отправлено (force)" : "отправлено";
     if (groupDue) {
       await prisma.botSettings.update({
         where: { id: "singleton" },
         data: { lastGroupKey: dateKey },
       });
     }
+  } else {
+    status.group = groupReason ?? "не отправлено";
   }
 
-  return NextResponse.json({ localTime: { dow, hour, dateKey }, ran });
+  return NextResponse.json({ localTime: { dow, hour, dateKey }, status, ran });
 }
