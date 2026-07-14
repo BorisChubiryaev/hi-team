@@ -62,8 +62,18 @@ export default function MonthSummaryPanel({
             <a
               href={`/api/export?month=${month}`}
               className="btn btn-ghost btn-sm"
+              title="Скачать месяц в Markdown"
             >
-              Экспорт .md
+              .md
+            </a>
+          )}
+          {content && (
+            <a
+              href={`/api/export?month=${month}&format=docx`}
+              className="btn btn-ghost btn-sm"
+              title="Скачать месяц в Word (.docx)"
+            >
+              .docx
             </a>
           )}
           {content && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Markdown from "@/components/Markdown";
 import EmailSummaryButton from "@/components/EmailSummaryButton";
 
@@ -19,6 +19,20 @@ export default function SummaryCell({
   const [model, setModel] = useState(initialModel ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  async function copy() {
+    // Копируем видимый текст как plain text (без разметки таблицы/Markdown).
+    const text = bodyRef.current?.innerText ?? content;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError("Не удалось скопировать");
+    }
+  }
 
   async function generate() {
     setLoading(true);
@@ -43,7 +57,9 @@ export default function SummaryCell({
   return (
     <div className="flex h-full flex-col gap-2">
       {content ? (
-        <Markdown>{content}</Markdown>
+        <div ref={bodyRef}>
+          <Markdown>{content}</Markdown>
+        </div>
       ) : (
         <p className="text-sm text-faint">Сводка ещё не сгенерирована.</p>
       )}
@@ -64,6 +80,16 @@ export default function SummaryCell({
               ? "Обновить сводку"
               : "Сгенерировать сводку"}
         </button>
+        {content && (
+          <button
+            type="button"
+            onClick={copy}
+            className="btn btn-ghost btn-sm"
+            title="Скопировать сводку как обычный текст"
+          >
+            {copied ? "Скопировано ✓" : "Копировать"}
+          </button>
+        )}
         {model && (
           <span className="text-[10px] text-faint" title={model}>
             {model.split("/").pop()?.replace(":free", "")}

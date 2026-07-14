@@ -178,13 +178,24 @@ export default async function DashboardPage({
                         )}
                       </p>
                     </div>
-                    <a
-                      href={`/api/export?weekId=${w.id}`}
-                      className="ml-auto shrink-0 text-xs font-medium text-accent hover:underline"
-                      title="Скачать неделю в Markdown"
-                    >
-                      Экспорт .md
-                    </a>
+                    <span className="ml-auto shrink-0 text-xs text-muted">
+                      Экспорт:{" "}
+                      <a
+                        href={`/api/export?weekId=${w.id}`}
+                        className="font-medium text-accent hover:underline"
+                        title="Скачать неделю в Markdown"
+                      >
+                        .md
+                      </a>
+                      {" · "}
+                      <a
+                        href={`/api/export?weekId=${w.id}&format=docx`}
+                        className="font-medium text-accent hover:underline"
+                        title="Скачать неделю в Word (.docx)"
+                      >
+                        .docx
+                      </a>
+                    </span>
                   </summary>
 
                   <div className="space-y-4 border-t border-line p-4">
@@ -383,13 +394,23 @@ function TableView({
               <tr key={w.id} className="align-top">
                 <th className="sticky left-0 z-10 border-b border-r border-line-strong bg-card p-3 text-left align-top font-medium text-ink">
                   {w.label}
-                  <a
-                    href={`/api/export?weekId=${w.id}`}
-                    className="mt-1 block text-xs font-normal text-accent hover:underline"
-                    title="Скачать неделю в Markdown"
-                  >
-                    Экспорт .md
-                  </a>
+                  <span className="mt-1 block text-xs font-normal text-muted">
+                    <a
+                      href={`/api/export?weekId=${w.id}`}
+                      className="text-accent hover:underline"
+                      title="Скачать неделю в Markdown"
+                    >
+                      .md
+                    </a>
+                    {" · "}
+                    <a
+                      href={`/api/export?weekId=${w.id}&format=docx`}
+                      className="text-accent hover:underline"
+                      title="Скачать неделю в Word (.docx)"
+                    >
+                      .docx
+                    </a>
+                  </span>
                 </th>
                 {users.map((u) => {
                   const projects = userMap.get(u.id);

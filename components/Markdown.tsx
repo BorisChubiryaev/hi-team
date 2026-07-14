@@ -1,5 +1,17 @@
+"use client";
+
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+
+// При копировании выделения отдаём только plain text. Иначе, если сводка
+// лежит в ячейке таблицы (вид «Таблица» на дашборде), браузер копирует
+// HTML-разметку таблицы и текст вставляется таблицей — неудобно.
+function forcePlainTextCopy(e: React.ClipboardEvent<HTMLDivElement>) {
+  const text = window.getSelection()?.toString();
+  if (!text) return;
+  e.preventDefault();
+  e.clipboardData.setData("text/plain", text);
+}
 
 // AI возвращает ответ в Markdown. Рендерим его в тёплой теме проекта:
 // компактная типографика, списки, выделения, таблицы GFM.
@@ -80,7 +92,7 @@ const components: Components = {
 
 export default function Markdown({ children }: { children: string }) {
   return (
-    <div className="text-sm leading-relaxed text-ink">
+    <div className="text-sm leading-relaxed text-ink" onCopy={forcePlainTextCopy}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {children}
       </ReactMarkdown>

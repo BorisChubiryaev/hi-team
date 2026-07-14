@@ -49,7 +49,8 @@ export default async function MonthlyPage({
           </h1>
           <p className="mt-1 text-sm text-muted">
             AI-агрегация недельных отчётов за месяц — удобно для отчётности
-            наверх. Экспортируется в Markdown вместе с отчётами всех недель.
+            наверх. Экспортируется в Markdown или Word вместе с отчётами всех
+            недель.
           </p>
         </div>
 
