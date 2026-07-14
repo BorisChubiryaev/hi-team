@@ -133,9 +133,27 @@ export async function updateBotSettings(input: {
     timezone,
   };
 
+  // Если поменяли день/час рассылки — сбрасываем отметку «отправлено сегодня»
+  // (дедуп), чтобы новое расписание могло сработать в этот же день.
+  const existing = await prisma.botSettings.findUnique({
+    where: { id: "singleton" },
+  });
+  const reminderChanged =
+    !existing ||
+    existing.reminderDow !== data.reminderDow ||
+    existing.reminderHour !== data.reminderHour;
+  const groupChanged =
+    !existing ||
+    existing.groupDow !== data.groupDow ||
+    existing.groupHour !== data.groupHour;
+
   await prisma.botSettings.upsert({
     where: { id: "singleton" },
-    update: data,
+    update: {
+      ...data,
+      ...(reminderChanged ? { lastReminderKey: null } : {}),
+      ...(groupChanged ? { lastGroupKey: null } : {}),
+    },
     create: { id: "singleton", ...data },
   });
   revalidatePath("/admin");
