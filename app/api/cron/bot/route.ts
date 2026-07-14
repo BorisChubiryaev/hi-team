@@ -1,10 +1,12 @@
-// Почасовой крон бота: смотрит настройки (BotSettings) и, если по локальному
-// времени команды наступил назначенный час/день, шлёт личные напоминания и/или
-// групповой ростер. Пингуется каждый час из GitHub Actions
-// (.github/workflows/bot-cron.yml) — бесплатная замена почасовому крону Vercel,
-// который на плане Hobby можно запускать лишь раз в сутки. Идемпотентен: дедуп
-// по локальной дате (не сработает дважды в один день). Ручной прогон:
-// ?force=reminder|group.
+// Почасовой крон бота: смотрит настройки (BotSettings) и в нужный день недели,
+// начиная с назначенного часа, шлёт личные напоминания и/или групповой ростер.
+// Пингуется каждый час из GitHub Actions (.github/workflows/bot-cron.yml) —
+// бесплатная замена почасовому крону Vercel (на Hobby крон можно раз в сутки).
+//
+// Условие часа — «>= назначенного», а не «== назначенному»: запуски GitHub
+// Actions часто задерживаются, и точный час можно проскочить. С «>=» сработает
+// на первом пинге после нужного часа, а дедуп по локальной дате гарантирует
+// один раз в день. Ручной прогон сейчас: ?force=reminder|group.
 
 import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron";
@@ -33,7 +35,7 @@ export async function GET(req: Request) {
   const reminderDue =
     settings.reminderEnabled &&
     dow === settings.reminderDow &&
-    hour === settings.reminderHour &&
+    hour >= settings.reminderHour &&
     settings.lastReminderKey !== dateKey;
 
   if (force === "reminder" || reminderDue) {
@@ -50,7 +52,7 @@ export async function GET(req: Request) {
     settings.groupEnabled &&
     !!settings.groupChatId &&
     dow === settings.groupDow &&
-    hour === settings.groupHour &&
+    hour >= settings.groupHour &&
     settings.lastGroupKey !== dateKey;
 
   if ((force === "group" || groupDue) && settings.groupChatId) {
