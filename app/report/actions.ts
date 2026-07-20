@@ -25,15 +25,17 @@ function isNextControlFlow(e: unknown): boolean {
 export async function saveReport(
   weekStartIso: string,
   projects: ProjectInput[],
+  vacation?: { enabled: boolean; weeks: number | null },
 ): Promise<SaveResult> {
   try {
     const user = await requireUser();
     const week = weekStartIso || isoDate(currentWeekRange().start);
-    await saveUserReport(user.id, week, projects);
+    await saveUserReport(user.id, week, projects, vacation);
 
     revalidatePath("/dashboard");
     revalidatePath("/report");
     revalidatePath("/projects");
+    revalidatePath("/admin");
     return { ok: true };
   } catch (e) {
     if (isNextControlFlow(e)) throw e; // redirect на /login и т.п.

@@ -4,6 +4,12 @@
 import { prisma } from "@/lib/db";
 import { ensureProject, normalizeProjectName } from "@/lib/projects";
 import { EDITABLE_WEEKS, isoDate, recentWeeks } from "@/lib/weeks";
+import {
+  addWeeks,
+  cancelUpcomingVacation,
+  closeVacationOnReport,
+  setVacation,
+} from "@/lib/vacations";
 
 export type ProjectInput = {
   name: string;
@@ -15,11 +21,14 @@ export type ProjectInput = {
 /**
  * Создаёт/обновляет отчёт пользователя за выбранную неделю. Разрешены только
  * текущая и три прошлые недели. Возвращает число сохранённых проектов.
+ * vacation: отметка «со следующей недели в отпуске» из веб-формы; бот
+ * параметр не передаёт — тогда отпуска не трогаем (кроме автовозврата).
  */
 export async function saveUserReport(
   userId: string,
   weekStartIso: string,
   projects: ProjectInput[],
+  vacation?: { enabled: boolean; weeks: number | null },
 ): Promise<number> {
   const target = recentWeeks(EDITABLE_WEEKS).find(
     (w) => isoDate(w.start) === weekStartIso,
@@ -79,6 +88,19 @@ export async function saveUserReport(
       })),
     }),
   ]);
+
+  // Автовозврат: непустой отчёт закрывает отпуск, покрывающий его неделю.
+  // Порядок важен: сначала закрываем старый, потом создаём отмеченный в форме.
+  if (cleaned.length > 0) {
+    await closeVacationOnReport(userId, target.start);
+  }
+  if (vacation) {
+    if (vacation.enabled) {
+      await setVacation(userId, addWeeks(target.start, 1), vacation.weeks, userId);
+    } else {
+      await cancelUpcomingVacation(userId, target.start);
+    }
+  }
 
   return cleaned.length;
 }
