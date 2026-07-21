@@ -3,7 +3,8 @@ import Header from "@/components/Header";
 import SummaryCell from "@/components/SummaryCell";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { currentWeekRange } from "@/lib/weeks";
+import { currentWeekRange, isoDate } from "@/lib/weeks";
+import { getVacationsByWeek } from "@/lib/vacations";
 
 export const dynamic = "force-dynamic";
 
@@ -65,13 +66,23 @@ export default async function DashboardPage({
     }),
   ]);
 
+  // Отпускники по каждой показанной неделе + текущей (для баннера).
+  const vacByWeek = await getVacationsByWeek([
+    start,
+    ...weeks.map((w) => w.startDate),
+  ]);
+  const vacOf = (weekStart: Date) =>
+    vacByWeek.get(isoDate(weekStart)) ?? new Set<string>();
+
   // Кто ещё не сдал отчёт за текущую неделю.
   const submitted = new Set(
     (currentWeek?.reports ?? [])
       .filter((r) => r.projects.length > 0)
       .map((r) => r.userId),
   );
-  const missing = users.filter((u) => !submitted.has(u.id));
+  const missing = users.filter(
+    (u) => !submitted.has(u.id) && !vacOf(start).has(u.id),
+  );
 
   // weekId -> userId -> projects
   const byWeekUser = new Map<string, Map<string, ProjectRow[]>>();
@@ -145,11 +156,17 @@ export default async function DashboardPage({
           <div className="space-y-4">
             {weeks.map((w, i) => {
               const userMap = byWeekUser.get(w.id)!;
+              const vacSet = vacOf(w.startDate);
               const submittedUsers = users.filter(
                 (u) => (userMap.get(u.id)?.length ?? 0) > 0,
               );
+              const vacationUsers = users.filter(
+                (u) =>
+                  (userMap.get(u.id)?.length ?? 0) === 0 && vacSet.has(u.id),
+              );
               const missingUsers = users.filter(
-                (u) => (userMap.get(u.id)?.length ?? 0) === 0,
+                (u) =>
+                  (userMap.get(u.id)?.length ?? 0) === 0 && !vacSet.has(u.id),
               );
               const blockersCount = w.reports.reduce(
                 (acc, r) =>
@@ -167,7 +184,8 @@ export default async function DashboardPage({
                     <div className="min-w-0">
                       <p className="font-semibold text-ink">{w.label}</p>
                       <p className="mt-0.5 text-xs text-muted">
-                        сдали {submittedUsers.length}/{users.length}
+                        сдали {submittedUsers.length}/
+                        {users.length - vacationUsers.length}
                         {blockersCount > 0 && (
                           <>
                             {" · "}
@@ -222,6 +240,20 @@ export default async function DashboardPage({
                             className="rounded-full bg-panel px-2 py-0.5 text-xs text-muted"
                           >
                             {displayName(u)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {vacationUsers.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs text-muted">В отпуске:</span>
+                        {vacationUsers.map((u) => (
+                          <span
+                            key={u.id}
+                            className="rounded-full bg-cream/60 px-2 py-0.5 text-xs text-cream-ink"
+                          >
+                            🏖 {displayName(u)}
                           </span>
                         ))}
                       </div>
