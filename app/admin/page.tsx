@@ -4,17 +4,33 @@ import AllowlistManager from "@/components/AllowlistManager";
 import BotSettingsPanel from "@/components/BotSettingsPanel";
 import { requireManager } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { currentWeekRange, formatDateHuman } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const me = await requireManager();
 
-  const [users, allowed, bot] = await Promise.all([
+  const { start: weekStart } = currentWeekRange();
+  const [users, allowed, bot, vacations] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
     prisma.allowedEmail.findMany({ orderBy: { email: "asc" } }),
     prisma.botSettings.findUnique({ where: { id: "singleton" } }),
+    prisma.vacation.findMany({
+      where: { OR: [{ endDate: null }, { endDate: { gte: weekStart } }] },
+    }),
   ]);
+  const vacationByUser = new Map(vacations.map((v) => [v.userId, v]));
+
+  // «с 27 июля по 7 августа» / «с 27 июля, до возвращения»;
+  // конец показываем пятницей последней недели.
+  const vacationLabel = (v: { startDate: Date; endDate: Date | null }) => {
+    const from = `с ${formatDateHuman(v.startDate)}`;
+    if (!v.endDate) return `${from}, до возвращения`;
+    const friday = new Date(v.endDate);
+    friday.setUTCDate(friday.getUTCDate() + 4);
+    return `${from} по ${formatDateHuman(friday)}`;
+  };
 
   return (
     <>
@@ -37,13 +53,26 @@ export default async function AdminPage() {
                 <Th>Сотрудник</Th>
                 <Th>Роль</Th>
                 <Th>Доступ</Th>
+                <Th>Отпуск</Th>
                 <Th>Telegram (личные напоминания)</Th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <AdminUserRow key={u.id} user={u} isSelf={u.id === me.id} />
-              ))}
+              {users.map((u) => {
+                const v = vacationByUser.get(u.id);
+                return (
+                  <AdminUserRow
+                    key={u.id}
+                    user={u}
+                    isSelf={u.id === me.id}
+                    vacation={
+                      v
+                        ? { label: vacationLabel(v), started: v.startDate <= weekStart }
+                        : null
+                    }
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
