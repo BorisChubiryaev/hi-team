@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { sendTelegram } from "@/lib/notify";
 import { MANAGER_ROLES } from "@/lib/roles";
 import { currentWeekRange, formatWeekLabel } from "@/lib/weeks";
+import { getVacationingUserIds } from "@/lib/vacations";
 
 type UserLite = {
   id: string;
@@ -21,16 +22,17 @@ function nameOf(u: { name: string | null; email: string }): string {
   return u.name ?? u.email.split("@")[0];
 }
 
-/** Кто сдал и кто нет за текущую неделю (среди активных сотрудников). */
+/** Кто сдал / кто в отпуске / кто не сдал за текущую неделю (среди активных). */
 export async function getWeekStatus(): Promise<{
   label: string;
   submitted: UserLite[];
+  vacation: UserLite[];
   missing: UserLite[];
 }> {
   const { start, end } = currentWeekRange();
   const label = formatWeekLabel(start, end);
 
-  const [users, week] = await Promise.all([
+  const [users, week, vacationIds] = await Promise.all([
     // Отчёт ждём только от пишущих его ролей (Руководитель не пишет).
     prisma.user.findMany({
       where: { active: true, role: { not: "DIRECTOR" } },
@@ -41,6 +43,7 @@ export async function getWeekStatus(): Promise<{
       where: { startDate: start },
       include: { reports: { include: { projects: true } } },
     }),
+    getVacationingUserIds(start),
   ]);
 
   const submittedIds = new Set(
@@ -48,10 +51,16 @@ export async function getWeekStatus(): Promise<{
       .filter((r) => r.projects.length > 0)
       .map((r) => r.userId),
   );
+  // Сдавший в отпуске считается сдавшим (автовозврат закроет отпуск).
   return {
     label,
     submitted: users.filter((u) => submittedIds.has(u.id)),
-    missing: users.filter((u) => !submittedIds.has(u.id)),
+    vacation: users.filter(
+      (u) => !submittedIds.has(u.id) && vacationIds.has(u.id),
+    ),
+    missing: users.filter(
+      (u) => !submittedIds.has(u.id) && !vacationIds.has(u.id),
+    ),
   };
 }
 
@@ -98,20 +107,24 @@ export async function sendReminders(): Promise<{
   return { allDone: false, missing: missing.length, notified };
 }
 
-/** Ростер в общий чат: кто сдал / кто нет (или «сдали все»). */
+/** Ростер в общий чат: кто сдал / в отпуске / кто нет (или «сдали все»). */
 export async function sendGroupRoster(chatId: string): Promise<boolean> {
-  const { label, submitted, missing } = await getWeekStatus();
+  const { label, submitted, vacation, missing } = await getWeekStatus();
+
+  const vacationLine = vacation.length
+    ? `\n🏖 В отпуске (${vacation.length}): ${vacation.map(nameOf).join(", ")}`
+    : "";
 
   let text: string;
   if (missing.length === 0) {
-    text = `✅ Отчёты за неделю ${label}: сдали все (${submitted.length}). Спасибо команде!`;
+    text = `✅ Отчёты за неделю ${label}: сдали все (${submitted.length}). Спасибо команде!${vacationLine}`;
   } else {
     const done = submitted.length ? submitted.map(nameOf).join(", ") : "—";
     const not = missing.map(nameOf).join(", ");
     text =
       `📋 Отчёты за неделю ${label}\n\n` +
       `✅ Сдали (${submitted.length}): ${done}\n` +
-      `⏳ Не сдали (${missing.length}): ${not}\n\n` +
+      `⏳ Не сдали (${missing.length}): ${not}${vacationLine}\n\n` +
       `Заполнить: ${appUrl()}/report`;
   }
   return sendTelegram(chatId, text);
