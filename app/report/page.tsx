@@ -78,9 +78,10 @@ export default async function ReportPage({
     })
   ).map((p) => p.name);
 
-  // Актуальный отпуск, начинающийся после недели отчёта, — предзаполняет
-  // галочку «со следующей недели я в отпуске».
-  const activeVacation = await getActiveVacation(user.id);
+  // Блок отпуска в форме имеет смысл только для текущей недели: галочка
+  // планирует отпуск со следующей недели. Для прошлых недель не показываем и
+  // не трогаем отпуск (автовозврат по отчёту сохраняется отдельно).
+  const activeVacation = isCurrent ? await getActiveVacation(user.id) : null;
   const upcoming =
     activeVacation && activeVacation.startDate > selected.start
       ? activeVacation
@@ -141,6 +142,7 @@ export default async function ReportPage({
           projectNames={projectNames}
           draftFromLabel={draftFromLabel}
           initialVacation={initialVacation}
+          canSetVacation={isCurrent}
         />
       </main>
     </>

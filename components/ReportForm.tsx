@@ -13,12 +13,14 @@ export default function ReportForm({
   projectNames = [],
   draftFromLabel = null,
   initialVacation = { enabled: false, weeks: null },
+  canSetVacation = false,
 }: {
   weekStartIso: string;
   initialProjects: ProjectInput[];
   projectNames?: string[];
   draftFromLabel?: string | null;
   initialVacation?: { enabled: boolean; weeks: number | null };
+  canSetVacation?: boolean;
 }) {
   const [projects, setProjects] = useState<ProjectInput[]>(
     initialProjects.length ? initialProjects : [{ ...EMPTY }],
@@ -52,10 +54,12 @@ export default function ReportForm({
   function onSave() {
     setError("");
     startTransition(async () => {
-      const vacation = {
-        enabled: vacationEnabled,
-        weeks: vacationWeeks === "open" ? null : Number(vacationWeeks),
-      };
+      const vacation = canSetVacation
+        ? {
+            enabled: vacationEnabled,
+            weeks: vacationWeeks === "open" ? null : Number(vacationWeeks),
+          }
+        : undefined;
       const res = await saveReport(weekStartIso, projects, vacation);
       if (res.ok) {
         setSaved(true);
@@ -124,43 +128,45 @@ export default function ReportForm({
         </div>
       ))}
 
-      <div className="card p-5">
-        <label className="flex items-center gap-2 text-sm font-medium text-ink">
-          <input
-            type="checkbox"
-            checked={vacationEnabled}
-            onChange={(e) => {
-              setVacationEnabled(e.target.checked);
-              setSaved(false);
-            }}
-            className="h-4 w-4 accent-[var(--accent)]"
-          />
-          Со следующей недели я в отпуске
-        </label>
-        {vacationEnabled && (
-          <label className="mt-3 flex items-center gap-2 text-sm text-muted">
-            Срок:
-            <select
-              value={vacationWeeks}
+      {canSetVacation && (
+        <div className="card p-5">
+          <label className="flex items-center gap-2 text-sm font-medium text-ink">
+            <input
+              type="checkbox"
+              checked={vacationEnabled}
               onChange={(e) => {
-                setVacationWeeks(e.target.value);
+                setVacationEnabled(e.target.checked);
                 setSaved(false);
               }}
-              className="input w-auto"
-            >
-              <option value="1">1 неделя</option>
-              <option value="2">2 недели</option>
-              <option value="3">3 недели</option>
-              <option value="4">4 недели</option>
-              <option value="open">пока не вернусь</option>
-            </select>
+              className="h-4 w-4 accent-[var(--accent)]"
+            />
+            Со следующей недели я в отпуске
           </label>
-        )}
-        <p className="mt-2 text-xs text-faint">
-          В отпуске отчёт не требуется: вы не попадаете в «не сдали» и не
-          получаете напоминания. Первый же сданный отчёт завершает отпуск.
-        </p>
-      </div>
+          {vacationEnabled && (
+            <label className="mt-3 flex items-center gap-2 text-sm text-muted">
+              Срок:
+              <select
+                value={vacationWeeks}
+                onChange={(e) => {
+                  setVacationWeeks(e.target.value);
+                  setSaved(false);
+                }}
+                className="input w-auto"
+              >
+                <option value="1">1 неделя</option>
+                <option value="2">2 недели</option>
+                <option value="3">3 недели</option>
+                <option value="4">4 недели</option>
+                <option value="open">пока не вернусь</option>
+              </select>
+            </label>
+          )}
+          <p className="mt-2 text-xs text-faint">
+            В отпуске отчёт не требуется: вы не попадаете в «не сдали» и не
+            получаете напоминания. Первый же сданный отчёт завершает отпуск.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={addProject} className="btn btn-ghost">
