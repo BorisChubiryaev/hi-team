@@ -40,6 +40,8 @@ export type WeekReportInput = {
     projectName: string;
     blockers: string;
   }[];
+  /** Кто в отпуске на этой неделе — чтобы сводка не считала их «пропавшими». */
+  vacationers?: string[];
 };
 
 function buildUserPrompt(input: WeekReportInput): string {
@@ -56,6 +58,14 @@ function buildUserPrompt(input: WeekReportInput): string {
       if (p.plans.trim()) lines.push(`  Планы: ${p.plans.trim()}`);
     }
     lines.push("");
+  }
+
+  if (input.vacationers && input.vacationers.length > 0) {
+    lines.push(
+      `### В отпуске на этой неделе: ${input.vacationers.join(", ")}`,
+      "Отчёт от них не ожидается — не упоминай их как отсутствующих или не сдавших.",
+      "",
+    );
   }
 
   if (input.previousBlockers && input.previousBlockers.length > 0) {

@@ -4,6 +4,7 @@
 
 import { prisma } from "@/lib/db";
 import { summarizeWeek } from "@/lib/openrouter";
+import { getVacationingUserIds } from "@/lib/vacations";
 
 export type WeekSummaryResult =
   | { ok: true; content: string; model: string }
@@ -59,6 +60,23 @@ export async function generateWeekSummary(
     ),
   );
 
+  // Отпускники недели — контекст, чтобы сводка не записала их в «не сдавших».
+  const vacationIds = await getVacationingUserIds(week.startDate);
+  const vacationers =
+    vacationIds.size > 0
+      ? (
+          await prisma.user.findMany({
+            where: {
+              id: { in: [...vacationIds] },
+              active: true,
+              role: { not: "DIRECTOR" },
+            },
+            select: { name: true, email: true },
+            orderBy: { createdAt: "asc" },
+          })
+        ).map((u) => u.name ?? u.email)
+      : [];
+
   try {
     const { content, model } = await summarizeWeek({
       weekLabel: week.label,
@@ -67,6 +85,7 @@ export async function generateWeekSummary(
         projects: r.projects,
       })),
       previousBlockers,
+      vacationers,
     });
 
     await prisma.summary.upsert({

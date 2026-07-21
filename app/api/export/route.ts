@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getVacationingUserIds } from "@/lib/vacations";
 import { formatMonthLabel, isoDate } from "@/lib/weeks";
 
 export const runtime = "nodejs";
@@ -25,11 +26,18 @@ type WeekWithReports = {
 // Markdown
 // ---------------------------------------------------------------------------
 
-function weekMarkdown(week: WeekWithReports, heading: string): string[] {
+function weekMarkdown(
+  week: WeekWithReports,
+  heading: string,
+  vacationers: string[] = [],
+): string[] {
   const lines: string[] = [`${heading} Отчёты за неделю ${week.label}`, ""];
 
   if (week.summary) {
     lines.push(`${heading}# Сводка недели (AI)`, "", week.summary.content, "");
+  }
+  if (vacationers.length > 0) {
+    lines.push(`**В отпуске:** ${vacationers.join(", ")}`, "");
   }
 
   for (const r of week.reports) {
@@ -113,7 +121,10 @@ function fieldParagraphs(label: string, value: string): Paragraph[] {
   return paras;
 }
 
-function weekParagraphs(week: WeekWithReports): Paragraph[] {
+function weekParagraphs(
+  week: WeekWithReports,
+  vacationers: string[] = [],
+): Paragraph[] {
   const out: Paragraph[] = [
     new Paragraph({
       heading: HeadingLevel.HEADING_1,
@@ -123,6 +134,16 @@ function weekParagraphs(week: WeekWithReports): Paragraph[] {
   if (week.summary) {
     out.push(new Paragraph({ heading: HeadingLevel.HEADING_2, text: "Сводка недели (AI)" }));
     out.push(...mdToParagraphs(week.summary.content));
+  }
+  if (vacationers.length > 0) {
+    out.push(
+      new Paragraph({
+        children: [
+          new TextRun({ text: "В отпуске: ", bold: true }),
+          new TextRun(vacationers.join(", ")),
+        ],
+      }),
+    );
   }
   for (const r of week.reports) {
     out.push(
@@ -154,6 +175,18 @@ async function docxResponse(children: Paragraph[], filename: string) {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
+}
+
+/** Имена отпускников недели для экспорта (активные, пишущие роли). */
+async function vacationerNames(weekStart: Date): Promise<string[]> {
+  const ids = await getVacationingUserIds(weekStart);
+  if (ids.size === 0) return [];
+  const users = await prisma.user.findMany({
+    where: { id: { in: [...ids] }, active: true, role: { not: "DIRECTOR" } },
+    select: { name: true, email: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return users.map((u) => u.name ?? u.email);
 }
 
 // ---------------------------------------------------------------------------
@@ -188,10 +221,11 @@ export async function GET(req: Request) {
     if (!week) {
       return NextResponse.json({ error: "Неделя не найдена" }, { status: 404 });
     }
+    const vacationers = await vacationerNames(week.startDate);
     const base = `week-${isoDate(week.startDate)}`;
     return docx
-      ? docxResponse(weekParagraphs(week), `${base}.docx`)
-      : markdownResponse(weekMarkdown(week, "#"), `${base}.md`);
+      ? docxResponse(weekParagraphs(week, vacationers), `${base}.docx`)
+      : markdownResponse(weekMarkdown(week, "#", vacationers), `${base}.md`);
   }
 
   if (month && MONTH_RE.test(month)) {
@@ -214,6 +248,10 @@ export async function GET(req: Request) {
       );
     }
 
+    const vacByWeekList = await Promise.all(
+      weeks.map((w) => vacationerNames(w.startDate)),
+    );
+
     if (docx) {
       const children: Paragraph[] = [
         new Paragraph({
@@ -227,7 +265,7 @@ export async function GET(req: Request) {
         );
         children.push(...mdToParagraphs(monthSummary.content));
       }
-      for (const w of weeks) children.push(...weekParagraphs(w));
+      weeks.forEach((w, i) => children.push(...weekParagraphs(w, vacByWeekList[i])));
       return docxResponse(children, `month-${month}.docx`);
     }
 
@@ -235,9 +273,9 @@ export async function GET(req: Request) {
     if (monthSummary) {
       lines.push("## Итоги месяца (AI)", "", monthSummary.content, "");
     }
-    for (const w of weeks) {
-      lines.push(...weekMarkdown(w, "##"));
-    }
+    weeks.forEach((w, i) => {
+      lines.push(...weekMarkdown(w, "##", vacByWeekList[i]));
+    });
     return markdownResponse(lines, `month-${month}.md`);
   }
 
