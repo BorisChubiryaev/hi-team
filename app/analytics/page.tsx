@@ -68,7 +68,7 @@ export default async function AnalyticsPage({
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatTile
             label="Сдано на этой неделе"
-            value={`${a.tiles.submittedThisWeek} из ${a.tiles.teamSize}`}
+            value={`${a.tiles.submittedThisWeek} из ${a.tiles.eligibleThisWeek}`}
           />
           <StatTile
             label="Блокеров на прошлой неделе"
@@ -99,7 +99,7 @@ export default async function AnalyticsPage({
         <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard
             title="Сдача отчётов по неделям"
-            subtitle={`Сколько человек из ${a.teamSize} сдали отчёт`}
+            subtitle={`Сколько человек из ${a.teamSize} сдали отчёт; отпуска не считаются`}
           >
             <ColumnChart
               data={withShort(a.discipline)}
