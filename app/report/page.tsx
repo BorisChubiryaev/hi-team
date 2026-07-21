@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { writesReports } from "@/lib/roles";
 import { EDITABLE_WEEKS, isoDate, recentWeeks } from "@/lib/weeks";
 import type { ProjectInput } from "@/lib/reports";
+import { getActiveVacation } from "@/lib/vacations";
 
 export default async function ReportPage({
   searchParams,
@@ -77,6 +78,25 @@ export default async function ReportPage({
     })
   ).map((p) => p.name);
 
+  // Актуальный отпуск, начинающийся после недели отчёта, — предзаполняет
+  // галочку «со следующей недели я в отпуске».
+  const activeVacation = await getActiveVacation(user.id);
+  const upcoming =
+    activeVacation && activeVacation.startDate > selected.start
+      ? activeVacation
+      : null;
+  const initialVacation = upcoming
+    ? {
+        enabled: true,
+        weeks: upcoming.endDate
+          ? Math.round(
+              (upcoming.endDate.getTime() - upcoming.startDate.getTime()) /
+                (7 * 24 * 60 * 60 * 1000),
+            ) + 1
+          : null,
+      }
+    : { enabled: false, weeks: null };
+
   return (
     <>
       <Header
@@ -120,6 +140,7 @@ export default async function ReportPage({
           initialProjects={initialProjects}
           projectNames={projectNames}
           draftFromLabel={draftFromLabel}
+          initialVacation={initialVacation}
         />
       </main>
     </>
