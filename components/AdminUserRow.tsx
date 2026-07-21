@@ -4,9 +4,11 @@ import { useState, useTransition } from "react";
 import type { Role } from "@prisma/client";
 import {
   deleteUser,
+  endUserVacation,
   setUserActive,
   setUserRole,
   setUserTelegram,
+  setUserVacation,
 } from "@/app/admin/actions";
 import { ROLE_LABELS } from "@/lib/roles";
 
@@ -15,6 +17,7 @@ const ROLE_OPTIONS: Role[] = ["MEMBER", "LEAD", "DIRECTOR"];
 export default function AdminUserRow({
   user,
   isSelf,
+  vacation,
 }: {
   user: {
     id: string;
@@ -25,10 +28,13 @@ export default function AdminUserRow({
     telegramChatId: string | null;
   };
   isSelf: boolean;
+  vacation: { label: string; started: boolean } | null;
 }) {
   const [telegram, setTelegram] = useState(user.telegramChatId ?? "");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
+  const [vacFrom, setVacFrom] = useState<"current" | "next">("next");
+  const [vacWeeks, setVacWeeks] = useState("1");
 
   function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>) {
     setError("");
@@ -104,6 +110,63 @@ export default function AdminUserRow({
           />
           {user.active ? "Активен" : "Деактивирован"}
         </label>
+      </td>
+      <td className="p-3">
+        {vacation ? (
+          <div className="text-sm">
+            <p className="whitespace-nowrap text-ink">🏖 {vacation.label}</p>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => run(() => endUserVacation(user.id))}
+              className="mt-1 text-xs text-danger transition hover:underline disabled:opacity-40"
+            >
+              {vacation.started ? "Завершить досрочно" : "Отменить"}
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <select
+              value={vacFrom}
+              disabled={pending}
+              onChange={(e) => setVacFrom(e.target.value as "current" | "next")}
+              className={inputClass}
+              aria-label="Отпуск с недели"
+            >
+              <option value="current">с текущей</option>
+              <option value="next">со следующей</option>
+            </select>
+            <select
+              value={vacWeeks}
+              disabled={pending}
+              onChange={(e) => setVacWeeks(e.target.value)}
+              className={inputClass}
+              aria-label="Срок отпуска"
+            >
+              <option value="1">1 нед.</option>
+              <option value="2">2 нед.</option>
+              <option value="3">3 нед.</option>
+              <option value="4">4 нед.</option>
+              <option value="open">открытый</option>
+            </select>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                run(() =>
+                  setUserVacation(
+                    user.id,
+                    vacFrom,
+                    vacWeeks === "open" ? null : Number(vacWeeks),
+                  ),
+                )
+              }
+              className="rounded-full px-2 py-1.5 text-xs font-medium text-accent transition hover:bg-cream disabled:opacity-40"
+            >
+              В отпуск
+            </button>
+          </div>
+        )}
       </td>
       <td className="p-3">
         <div className="flex items-center gap-1.5">

@@ -5,6 +5,7 @@
 import type { ProjectStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { currentWeekRange, isoDate } from "@/lib/weeks";
+import { getVacationsByWeek } from "@/lib/vacations";
 
 export type WeekPoint = { label: string; value: number };
 
@@ -25,6 +26,8 @@ export type Analytics = {
     pausedProjects: number;
     doneProjects: number;
     submittedThisWeek: number;
+    /** Сколько человек обязаны сдать на этой неделе (без отпускников). */
+    eligibleThisWeek: number;
     teamSize: number;
     blockersLastWeek: number;
     totalWeeks: number;
@@ -115,9 +118,20 @@ export async function getAnalytics(
   const chrono = [...weeks].reverse(); // от старых к новым
   const teamSize = userId ? 1 : activeUsers.length;
 
+  // Отпускники по неделям периода + текущей (недели без Week-записи тоже).
+  const vacByWeek = await getVacationsByWeek([
+    currentStart,
+    ...weeks.map((w) => w.startDate),
+  ]);
+  const vacOf = (w: { startDate: Date }) =>
+    vacByWeek.get(isoDate(w.startDate)) ?? new Set<string>();
+  const vacCur = vacOf({ startDate: currentStart });
+
   const discipline: WeekPoint[] = chrono.map((w) => ({
     label: w.label,
-    value: filteredWeek(w).filter((r) => r.projects.length > 0).length,
+    value: filteredWeek(w).filter(
+      (r) => r.projects.length > 0 && !vacOf(w).has(r.userId),
+    ).length,
   }));
 
   const blockers: WeekPoint[] = chrono.map((w) => ({
@@ -181,8 +195,15 @@ export async function getAnalytics(
       pausedProjects: statusCount("PAUSED"),
       doneProjects: statusCount("DONE"),
       submittedThisWeek: currentWeek
-        ? filteredWeek(currentWeek).filter((r) => r.projects.length > 0).length
+        ? filteredWeek(currentWeek).filter(
+            (r) => r.projects.length > 0 && !vacCur.has(r.userId),
+          ).length
         : 0,
+      eligibleThisWeek:
+        teamSize -
+        activeUsers.filter(
+          (u) => vacCur.has(u.id) && (!userId || u.id === userId),
+        ).length,
       teamSize,
       blockersLastWeek: lastFinishedWeek
         ? filteredWeek(lastFinishedWeek).reduce(

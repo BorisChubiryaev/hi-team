@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db";
 import { TIMEZONES } from "@/lib/bot-constants";
 import { sendGroupRoster, sendReminders } from "@/lib/reminders";
 import { canManage, MANAGER_ROLES } from "@/lib/roles";
+import { addWeeks, endVacationNow, setVacation } from "@/lib/vacations";
+import { currentWeekRange } from "@/lib/weeks";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -208,5 +210,38 @@ export async function removeAllowedEmail(id: string): Promise<ActionResult> {
   await requireManager();
   await prisma.allowedEmail.delete({ where: { id } });
   revalidatePath("/admin");
+  return { ok: true };
+}
+
+/** Оформляет отпуск сотруднику с текущей или следующей недели. Только LEAD/DIRECTOR. */
+export async function setUserVacation(
+  userId: string,
+  fromWeek: "current" | "next",
+  weeks: number | null,
+): Promise<ActionResult> {
+  const me = await requireManager();
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) return { ok: false, error: "Пользователь не найден" };
+  if (weeks !== null && (!Number.isInteger(weeks) || weeks < 1 || weeks > 4)) {
+    return { ok: false, error: "Срок — 1–4 недели или открытый" };
+  }
+  const { start } = currentWeekRange();
+  await setVacation(
+    userId,
+    fromWeek === "next" ? addWeeks(start, 1) : start,
+    weeks,
+    me.id,
+  );
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/** Досрочно завершает отпуск сотрудника (ещё не начавшийся — отменяет). */
+export async function endUserVacation(userId: string): Promise<ActionResult> {
+  await requireManager();
+  await endVacationNow(userId);
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
   return { ok: true };
 }
