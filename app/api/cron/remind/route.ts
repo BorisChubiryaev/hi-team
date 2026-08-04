@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron";
 import { prisma } from "@/lib/db";
 import { notifyTeam, sendTelegram } from "@/lib/notify";
+import { notOnVacationFilter } from "@/lib/vacation";
 import { currentWeekRange, formatWeekLabel } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
 
   const [users, week] = await Promise.all([
     prisma.user.findMany({
-      where: { active: true },
+      where: { active: true, ...notOnVacationFilter() },
       orderBy: { createdAt: "asc" },
     }),
     prisma.week.findUnique({

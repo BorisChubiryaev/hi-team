@@ -7,10 +7,18 @@ import {
   setUserActive,
   setUserRole,
   setUserTelegram,
+  setUserVacation,
 } from "@/app/admin/actions";
 import { ROLE_LABELS } from "@/lib/roles";
 
 const ROLE_OPTIONS: Role[] = ["MEMBER", "LEAD", "DIRECTOR"];
+
+/** Date | ISO-строка | null → значение для <input type="date"> (YYYY-MM-DD). */
+function toDateInput(v: Date | string | null): string {
+  if (!v) return "";
+  const d = typeof v === "string" ? new Date(v) : v;
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+}
 
 export default function AdminUserRow({
   user,
@@ -23,10 +31,12 @@ export default function AdminUserRow({
     role: Role;
     active: boolean;
     telegramChatId: string | null;
+    vacationUntil: Date | string | null;
   };
   isSelf: boolean;
 }) {
   const [telegram, setTelegram] = useState(user.telegramChatId ?? "");
+  const [vacation, setVacation] = useState(toDateInput(user.vacationUntil));
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -118,6 +128,25 @@ export default function AdminUserRow({
             type="button"
             disabled={pending || telegram === (user.telegramChatId ?? "")}
             onClick={() => run(() => setUserTelegram(user.id, telegram))}
+            className="rounded-full px-2 py-1.5 text-xs font-medium text-accent transition hover:bg-cream disabled:opacity-40"
+          >
+            Сохранить
+          </button>
+        </div>
+      </td>
+      <td className="p-3">
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            value={vacation}
+            onChange={(e) => setVacation(e.target.value)}
+            className={`${inputClass} w-36`}
+            aria-label="В отпуске до"
+          />
+          <button
+            type="button"
+            disabled={pending || vacation === toDateInput(user.vacationUntil)}
+            onClick={() => run(() => setUserVacation(user.id, vacation))}
             className="rounded-full px-2 py-1.5 text-xs font-medium text-accent transition hover:bg-cream disabled:opacity-40"
           >
             Сохранить

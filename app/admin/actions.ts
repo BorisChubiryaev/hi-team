@@ -90,6 +90,32 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Отмечает сотрудника в отпуске до даты (YYYY-MM-DD) или снимает отметку (пусто). */
+export async function setUserVacation(
+  userId: string,
+  until: string,
+): Promise<ActionResult> {
+  await requireManager();
+  const value = until.trim();
+  let date: Date | null = null;
+  if (value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return { ok: false, error: "Неверная дата" };
+    }
+    date = new Date(`${value}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) {
+      return { ok: false, error: "Неверная дата" };
+    }
+  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: { vacationUntil: date },
+  });
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
 /** Сохраняет Telegram chat_id для персональных напоминаний (пусто = убрать). */
 export async function setUserTelegram(
   userId: string,

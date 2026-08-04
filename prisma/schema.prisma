@@ -28,6 +28,7 @@ model User {
   image            String?
   role             Role     @default(MEMBER)
   active           Boolean  @default(true) // false = ушёл из команды: не логинится, не в дашборде
+  vacationUntil    DateTime? @db.Date // в отпуске по эту дату включительно; пусто = не в отпуске. Пока в отпуске — не ждём отчёт и не шлём напоминания
   telegramChatId   String?  @unique // личный chat_id (привязка Telegram, персональные напоминания)
   telegramUsername String? // @username на момент привязки — для отображения
   createdAt        DateTime @default(now())

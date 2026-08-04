@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/db";
 import { sendTelegram } from "@/lib/notify";
 import { MANAGER_ROLES } from "@/lib/roles";
+import { notOnVacationFilter } from "@/lib/vacation";
 import { currentWeekRange, formatWeekLabel } from "@/lib/weeks";
 
 type UserLite = {
@@ -31,9 +32,14 @@ export async function getWeekStatus(): Promise<{
   const label = formatWeekLabel(start, end);
 
   const [users, week] = await Promise.all([
-    // Отчёт ждём только от пишущих его ролей (Руководитель не пишет).
+    // Отчёт ждём только от пишущих его ролей (Руководитель не пишет) и не от
+    // тех, кто сейчас в отпуске.
     prisma.user.findMany({
-      where: { active: true, role: { not: "DIRECTOR" } },
+      where: {
+        active: true,
+        role: { not: "DIRECTOR" },
+        ...notOnVacationFilter(),
+      },
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, email: true, telegramChatId: true },
     }),

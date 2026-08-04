@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import SummaryCell from "@/components/SummaryCell";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isOnVacation } from "@/lib/vacation";
 import { currentWeekRange } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
@@ -71,7 +72,10 @@ export default async function DashboardPage({
       .filter((r) => r.projects.length > 0)
       .map((r) => r.userId),
   );
-  const missing = users.filter((u) => !submitted.has(u.id));
+  // На отпускников не ждём отчёт: не показываем их среди «не сдали».
+  const missing = users.filter(
+    (u) => !submitted.has(u.id) && !isOnVacation(u),
+  );
 
   // weekId -> userId -> projects
   const byWeekUser = new Map<string, Map<string, ProjectRow[]>>();
@@ -148,8 +152,10 @@ export default async function DashboardPage({
               const submittedUsers = users.filter(
                 (u) => (userMap.get(u.id)?.length ?? 0) > 0,
               );
+              const vacationUsers = users.filter((u) => isOnVacation(u));
+              const expectedCount = users.length - vacationUsers.length;
               const missingUsers = users.filter(
-                (u) => (userMap.get(u.id)?.length ?? 0) === 0,
+                (u) => (userMap.get(u.id)?.length ?? 0) === 0 && !isOnVacation(u),
               );
               const blockersCount = w.reports.reduce(
                 (acc, r) =>
@@ -167,7 +173,7 @@ export default async function DashboardPage({
                     <div className="min-w-0">
                       <p className="font-semibold text-ink">{w.label}</p>
                       <p className="mt-0.5 text-xs text-muted">
-                        сдали {submittedUsers.length}/{users.length}
+                        сдали {submittedUsers.length}/{expectedCount}
                         {blockersCount > 0 && (
                           <>
                             {" · "}
@@ -220,6 +226,20 @@ export default async function DashboardPage({
                           <span
                             key={u.id}
                             className="rounded-full bg-panel px-2 py-0.5 text-xs text-muted"
+                          >
+                            {displayName(u)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {i === 0 && vacationUsers.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs text-muted">В отпуске:</span>
+                        {vacationUsers.map((u) => (
+                          <span
+                            key={u.id}
+                            className="rounded-full bg-cream px-2 py-0.5 text-xs text-cream-ink"
                           >
                             {displayName(u)}
                           </span>
