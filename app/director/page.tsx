@@ -47,6 +47,15 @@ export default async function DirectorPage({
       plans: p.plans,
     })) ?? [];
 
+  // Имена активных проектов для автодополнения (тот же каталог, что у команды).
+  const projectNames = (
+    await prisma.project.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: { name: true },
+    })
+  ).map((p) => p.name);
+
   // Черновик: если за выбранную неделю отчёта ещё нет — предзаполняем из
   // предыдущего (планы → заготовка «Сделано», блокеры переносятся).
   let draftFromLabel: string | null = null;
@@ -107,6 +116,7 @@ export default async function DirectorPage({
           key={selectedIso}
           weekStartIso={selectedIso}
           initialProjects={initialProjects}
+          projectNames={projectNames}
           draftFromLabel={draftFromLabel}
           save={saveMyDirectorReport}
         />

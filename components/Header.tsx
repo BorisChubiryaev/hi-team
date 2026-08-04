@@ -20,6 +20,7 @@ export default function Header({
     | "admin"
     | "guide"
     | "director"
+    | "notes"
     | "settings";
   role?: Role;
 }) {
@@ -54,6 +55,7 @@ export default function Header({
             label="Аналитика"
             active={active === "analytics"}
           />
+          <Tab href="/notes" label="Заметки" active={active === "notes"} />
           {canManage(role) && (
             <Tab href="/admin" label="Команда" active={active === "admin"} />
           )}
