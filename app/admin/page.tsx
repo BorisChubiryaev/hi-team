@@ -19,7 +19,7 @@ export default async function AdminPage() {
   return (
     <>
       <Header email={me.email} active="admin" role={me.role} />
-      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">
             Команда
@@ -50,12 +50,13 @@ export default async function AdminPage() {
           </table>
         </div>
 
-        <AllowlistManager
-          emails={allowed}
-          usingEnvFallback={allowed.length === 0}
-        />
+        <div className="max-w-3xl">
+          <AllowlistManager
+            emails={allowed}
+            usingEnvFallback={allowed.length === 0}
+          />
 
-        <BotSettingsPanel
+          <BotSettingsPanel
           reminderEnabled={bot?.reminderEnabled ?? false}
           reminderDow={bot?.reminderDow ?? 4}
           reminderHour={bot?.reminderHour ?? 10}
@@ -65,7 +66,8 @@ export default async function AdminPage() {
           timezone={bot?.timezone ?? "Europe/Moscow"}
           groupChatId={bot?.groupChatId ?? null}
           groupTitle={bot?.groupTitle ?? null}
-        />
+          />
+        </div>
       </main>
     </>
   );
