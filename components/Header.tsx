@@ -19,6 +19,7 @@ export default function Header({
     | "analytics"
     | "admin"
     | "guide"
+    | "director"
     | "settings";
   role?: Role;
 }) {
@@ -33,6 +34,13 @@ export default function Header({
         </Link>
         <nav className="flex items-center gap-1 text-sm">
           <Tab href="/dashboard" label="Отчёты" active={active === "dashboard"} />
+          {role === "DIRECTOR" && (
+            <Tab
+              href="/director"
+              label="Мои отчёты"
+              active={active === "director"}
+            />
+          )}
           {writesReports(role) && (
             <Tab href="/report" label="Мой отчёт" active={active === "report"} />
           )}

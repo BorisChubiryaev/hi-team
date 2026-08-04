@@ -12,11 +12,18 @@ export default function ReportForm({
   initialProjects,
   projectNames = [],
   draftFromLabel = null,
+  save = saveReport,
 }: {
   weekStartIso: string;
   initialProjects: ProjectInput[];
   projectNames?: string[];
   draftFromLabel?: string | null;
+  // Функция сохранения (server action). По умолчанию — командный отчёт;
+  // раздел руководителя передаёт свою (приватный отчёт).
+  save?: (
+    weekStartIso: string,
+    projects: ProjectInput[],
+  ) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [projects, setProjects] = useState<ProjectInput[]>(
     initialProjects.length ? initialProjects : [{ ...EMPTY }],
@@ -44,7 +51,7 @@ export default function ReportForm({
   function onSave() {
     setError("");
     startTransition(async () => {
-      const res = await saveReport(weekStartIso, projects);
+      const res = await save(weekStartIso, projects);
       if (res.ok) {
         setSaved(true);
         router.refresh();

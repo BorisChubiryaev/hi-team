@@ -94,3 +94,10 @@ export async function requireManager() {
   if (!canManage(user.role)) redirect("/dashboard");
   return user;
 }
+
+/** Только для роли «Руководитель» (DIRECTOR); остальных — на дашборд. */
+export async function requireDirector() {
+  const user = await requireDbUser();
+  if (user.role !== "DIRECTOR") redirect("/dashboard");
+  return user;
+}

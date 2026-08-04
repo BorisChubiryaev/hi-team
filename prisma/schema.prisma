@@ -33,9 +33,10 @@ model User {
   telegramUsername String? // @username на момент привязки — для отображения
   createdAt        DateTime @default(now())
 
-  reports      Report[]
-  telegramLink TelegramLink?
-  reviewPreps  ReviewPrep[]
+  reports         Report[]
+  telegramLink    TelegramLink?
+  reviewPreps     ReviewPrep[]
+  directorReports DirectorReport[]
 }
 
 // Личная подготовка сотрудника к встрече 1:1 с руководителем: AI-резюме
@@ -136,8 +137,9 @@ model Week {
   startDate DateTime @unique @db.Date
   endDate   DateTime @db.Date
 
-  reports Report[]
-  summary Summary?
+  reports         Report[]
+  summary         Summary?
+  directorReports DirectorReport[]
 
   @@index([startDate])
 }
@@ -171,6 +173,37 @@ model ReportProject {
 
   @@index([reportId])
   @@index([projectId])
+}
+
+// Приватный недельный отчёт руководителя (роль DIRECTOR). Отдельные таблицы,
+// чтобы данные НЕ попадали в командный дашборд, AI-сводки, экспорт и аналитику.
+// Виден только автору в разделе /director.
+model DirectorReport {
+  id        String   @id @default(cuid())
+  authorId  String
+  weekId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author   User                    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  week     Week                    @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  projects DirectorReportProject[]
+
+  @@unique([authorId, weekId])
+}
+
+model DirectorReportProject {
+  id       String @id @default(cuid())
+  reportId String
+  name     String
+  done     String @default("") @db.Text
+  blockers String @default("") @db.Text
+  plans    String @default("") @db.Text
+  order    Int    @default(0)
+
+  report DirectorReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
 }
 
 // Сгенерированная ИИ сводка месяца (для отчётности наверх)

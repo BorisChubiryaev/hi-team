@@ -82,3 +82,64 @@ export async function saveUserReport(
 
   return cleaned.length;
 }
+
+/**
+ * Приватный недельный отчёт руководителя (DIRECTOR). Отдельные таблицы —
+ * данные не смешиваются с командными и не привязываются к каталогу проектов.
+ */
+export async function saveDirectorReport(
+  authorId: string,
+  weekStartIso: string,
+  projects: ProjectInput[],
+): Promise<number> {
+  const target = recentWeeks(EDITABLE_WEEKS).find(
+    (w) => isoDate(w.start) === weekStartIso,
+  );
+  if (!target) {
+    throw new Error("Эту неделю уже нельзя заполнить");
+  }
+
+  const week = await prisma.week.upsert({
+    where: { startDate: target.start },
+    update: {},
+    create: {
+      startDate: target.start,
+      endDate: target.end,
+      label: target.label,
+    },
+  });
+
+  const cleaned = projects
+    .map((p, i) => ({
+      name: normalizeProjectName(p.name),
+      done: p.done.trim(),
+      blockers: p.blockers.trim(),
+      plans: p.plans.trim(),
+      order: i,
+    }))
+    .filter((p) => p.name || p.done || p.blockers || p.plans);
+
+  const report = await prisma.directorReport.upsert({
+    where: { authorId_weekId: { authorId, weekId: week.id } },
+    update: {},
+    create: { authorId, weekId: week.id },
+  });
+
+  await prisma.$transaction([
+    prisma.directorReportProject.deleteMany({
+      where: { reportId: report.id },
+    }),
+    prisma.directorReportProject.createMany({
+      data: cleaned.map((p) => ({
+        reportId: report.id,
+        name: p.name,
+        done: p.done,
+        blockers: p.blockers,
+        plans: p.plans,
+        order: p.order,
+      })),
+    }),
+  ]);
+
+  return cleaned.length;
+}
