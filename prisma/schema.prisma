@@ -20,6 +20,13 @@ enum Role {
   DIRECTOR // Руководитель (управление, отчёты не пишет)
 }
 
+// Подкоманда сотрудника: команда делится на две подгруппы. Определяет, в какой
+// раздел AI-сводки недели попадают его отчёты. null = ещё не выбрана.
+enum Subteam {
+  AI // направление AI
+  BI // направление BI
+}
+
 model User {
   id               String   @id @default(cuid())
   name             String?
@@ -27,6 +34,7 @@ model User {
   passwordHash     String? // bcrypt; null = пароль ещё не задан (первый вход)
   image            String?
   role             Role     @default(MEMBER)
+  subteam          Subteam? // подкоманда (AI/BI): группировка в AI-сводке; null = не выбрана
   active           Boolean  @default(true) // false = ушёл из команды: не логинится, не в дашборде
   vacationUntil    DateTime? @db.Date // в отпуске по эту дату включительно; пусто = не в отпуске. Пока в отпуске — не ждём отчёт и не шлём напоминания
   telegramChatId   String?  @unique // личный chat_id (привязка Telegram, персональные напоминания)

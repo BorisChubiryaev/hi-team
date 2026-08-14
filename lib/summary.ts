@@ -64,6 +64,7 @@ export async function generateWeekSummary(
       weekLabel: week.label,
       reports: week.reports.map((r) => ({
         name: r.user.name ?? r.user.email,
+        subteam: r.user.subteam,
         projects: r.projects,
       })),
       previousBlockers,

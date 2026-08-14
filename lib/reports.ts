@@ -1,6 +1,7 @@
 // Сохранение недельного отчёта — общая логика для веб-формы (server action)
 // и Telegram-бота. Валидирует неделю и привязывает строки к проектам.
 
+import type { Subteam } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ensureProject, normalizeProjectName } from "@/lib/projects";
 import { EDITABLE_WEEKS, isoDate, recentWeeks } from "@/lib/weeks";
@@ -20,12 +21,19 @@ export async function saveUserReport(
   userId: string,
   weekStartIso: string,
   projects: ProjectInput[],
+  // Подкоманда автора: если передана — обновляем профиль (сотрудник выбирает
+  // её в форме отчёта). Бот не передаёт — сохраняется ранее выбранная.
+  subteam?: Subteam | null,
 ): Promise<number> {
   const target = recentWeeks(EDITABLE_WEEKS).find(
     (w) => isoDate(w.start) === weekStartIso,
   );
   if (!target) {
     throw new Error("Эту неделю уже нельзя заполнить");
+  }
+
+  if (subteam) {
+    await prisma.user.update({ where: { id: userId }, data: { subteam } });
   }
 
   const week = await prisma.week.upsert({

@@ -1,14 +1,28 @@
 import Link from "next/link";
+import type { Subteam } from "@prisma/client";
 import Header from "@/components/Header";
 import SummaryCell from "@/components/SummaryCell";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { subteamTag } from "@/lib/subteam";
 import { isOnVacation } from "@/lib/vacation";
 import { currentWeekRange } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_WEEKS_LIMIT = 8;
+
+// Разделы дашборда по подкомандам (порядок фиксирован; последний — те, кто ещё
+// не выбрал подкоманду).
+const SUBTEAM_GROUPS: {
+  key: Subteam | null;
+  tag: string;
+  badgeClass: string;
+}[] = [
+  { key: "AI", tag: subteamTag("AI"), badgeClass: "bg-accent/15 text-accent" },
+  { key: "BI", tag: subteamTag("BI"), badgeClass: "bg-success/15 text-success" },
+  { key: null, tag: "Без подкоманды", badgeClass: "bg-panel text-muted" },
+];
 
 type UserLite = { id: string; name: string | null; email: string };
 type ProjectRow = {
@@ -205,11 +219,19 @@ export default async function DashboardPage({
                   </summary>
 
                   <div className="space-y-4 border-t border-line p-4">
-                    <div className="rounded-xl border border-cream-ink/15 bg-cream/50 p-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-cream-ink">
-                        AI-сводка недели
-                      </p>
-                      <div className="mt-2">
+                    <details className="rounded-xl border border-cream-ink/15 bg-cream/50 p-4">
+                      <summary className="flex cursor-pointer list-none items-center gap-2">
+                        <Chevron />
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-cream-ink">
+                          AI-сводка недели
+                        </span>
+                        {w.summary && (
+                          <span className="ml-2 text-[11px] font-normal text-cream-ink/70">
+                            готова
+                          </span>
+                        )}
+                      </summary>
+                      <div className="mt-3">
                         <SummaryCell
                           weekId={w.id}
                           initialContent={w.summary?.content ?? null}
@@ -217,7 +239,7 @@ export default async function DashboardPage({
                           hasReports={w.reports.length > 0}
                         />
                       </div>
-                    </div>
+                    </details>
 
                     {missingUsers.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -252,14 +274,36 @@ export default async function DashboardPage({
                         За эту неделю ещё нет отчётов.
                       </p>
                     ) : (
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {submittedUsers.map((u) => (
-                          <PersonCard
-                            key={u.id}
-                            name={displayName(u)}
-                            projects={userMap.get(u.id) ?? []}
-                          />
-                        ))}
+                      <div className="space-y-4">
+                        {SUBTEAM_GROUPS.map((group) => {
+                          const groupUsers = submittedUsers.filter(
+                            (u) => (u.subteam ?? null) === group.key,
+                          );
+                          if (groupUsers.length === 0) return null;
+                          return (
+                            <div key={group.key ?? "none"}>
+                              <div className="mb-2 flex items-center gap-2">
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${group.badgeClass}`}
+                                >
+                                  {group.tag}
+                                </span>
+                                <span className="text-xs text-muted">
+                                  {groupUsers.length}
+                                </span>
+                              </div>
+                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                {groupUsers.map((u) => (
+                                  <PersonCard
+                                    key={u.id}
+                                    name={displayName(u)}
+                                    projects={userMap.get(u.id) ?? []}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

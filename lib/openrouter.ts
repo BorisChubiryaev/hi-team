@@ -1,6 +1,8 @@
 // Обёртка над OpenRouter Chat Completions для суммаризации недельных отчётов.
 // Ключ берётся только из серверного окружения и никогда не уходит в браузер.
 
+import type { Subteam } from "@prisma/client";
+
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL =
   process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
@@ -10,9 +12,11 @@ const DEFAULT_MODEL =
 // Наши сводки короткие — 2048 токенов с запасом хватает.
 const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS) || 2048;
 
-const SYSTEM_PROMPT = `Ты — ассистент, который готовит краткую деловую сводку по еженедельным отчётам команды (аналитика данных и веб-разработка) для руководителя.
+const SYSTEM_PROMPT = `Ты — ассистент, который готовит краткую деловую сводку по еженедельным отчётам команды для руководителя. Команда делится на две подкоманды: AI и BI.
 
-Пиши строго по-русски, по делу, без воды. На основе отчётов сотрудников за неделю сформируй сводку по следующей структуре:
+Пиши строго по-русски, по делу, без воды. Раздели сводку на два верхнеуровневых раздела по подкомандам — сначала «## AI», затем «## BI». В отчётах каждый сотрудник помечен своей подкомандой; относи его достижения, блокеры и планы в соответствующий раздел. Если у части сотрудников подкоманда не указана — добавь в конце раздел «## Без подкоманды». Пустые разделы не создавай.
+
+Внутри каждого раздела подкоманды придерживайся структуры:
 
 1. Ключевые достижения недели (самое важное, что реально сделано; группируй по проектам, а не по людям).
 2. Блокеры и риски (что мешает, на что обратить внимание руководителю).
@@ -26,6 +30,8 @@ export type WeekReportInput = {
   weekLabel: string;
   reports: {
     name: string;
+    /** Подкоманда автора (AI/BI); null — ещё не выбрана. */
+    subteam?: Subteam | null;
     projects: {
       name: string;
       done: string;
@@ -44,18 +50,31 @@ export type WeekReportInput = {
 
 function buildUserPrompt(input: WeekReportInput): string {
   const lines: string[] = [`Отчёты команды за неделю ${input.weekLabel}.`, ""];
-  for (const r of input.reports) {
-    lines.push(`### Сотрудник: ${r.name}`);
-    if (r.projects.length === 0) {
-      lines.push("(нет данных)");
+
+  // Группируем отчёты по подкомандам, чтобы модель делила сводку на AI и BI.
+  const groups: { title: string; match: (s: Subteam | null | undefined) => boolean }[] = [
+    { title: "Подкоманда AI", match: (s) => s === "AI" },
+    { title: "Подкоманда BI", match: (s) => s === "BI" },
+    { title: "Без подкоманды", match: (s) => s !== "AI" && s !== "BI" },
+  ];
+
+  for (const g of groups) {
+    const reports = input.reports.filter((r) => g.match(r.subteam));
+    if (reports.length === 0) continue;
+    lines.push(`## ${g.title}`, "");
+    for (const r of reports) {
+      lines.push(`### Сотрудник: ${r.name}`);
+      if (r.projects.length === 0) {
+        lines.push("(нет данных)");
+      }
+      for (const p of r.projects) {
+        lines.push(`Проект: ${p.name || "—"}`);
+        if (p.done.trim()) lines.push(`  Сделано: ${p.done.trim()}`);
+        if (p.blockers.trim()) lines.push(`  Блокеры: ${p.blockers.trim()}`);
+        if (p.plans.trim()) lines.push(`  Планы: ${p.plans.trim()}`);
+      }
+      lines.push("");
     }
-    for (const p of r.projects) {
-      lines.push(`Проект: ${p.name || "—"}`);
-      if (p.done.trim()) lines.push(`  Сделано: ${p.done.trim()}`);
-      if (p.blockers.trim()) lines.push(`  Блокеры: ${p.blockers.trim()}`);
-      if (p.plans.trim()) lines.push(`  Планы: ${p.plans.trim()}`);
-    }
-    lines.push("");
   }
 
   if (input.previousBlockers && input.previousBlockers.length > 0) {

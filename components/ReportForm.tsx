@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import type { Subteam } from "@prisma/client";
 import { saveReport } from "@/app/report/actions";
 import type { ProjectInput } from "@/lib/reports";
+import { SUBTEAMS, SUBTEAM_LABELS, subteamTag } from "@/lib/subteam";
 
 const EMPTY: ProjectInput = { name: "", done: "", blockers: "", plans: "" };
 
@@ -12,22 +14,30 @@ export default function ReportForm({
   initialProjects,
   projectNames = [],
   draftFromLabel = null,
+  initialSubteam = null,
+  showSubteam = false,
   save = saveReport,
 }: {
   weekStartIso: string;
   initialProjects: ProjectInput[];
   projectNames?: string[];
   draftFromLabel?: string | null;
+  // Текущая подкоманда автора и нужно ли показывать её выбор (только командный
+  // отчёт; раздел руководителя выбор подкоманды не показывает).
+  initialSubteam?: Subteam | null;
+  showSubteam?: boolean;
   // Функция сохранения (server action). По умолчанию — командный отчёт;
   // раздел руководителя передаёт свою (приватный отчёт).
   save?: (
     weekStartIso: string,
     projects: ProjectInput[],
+    subteam?: Subteam | null,
   ) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [projects, setProjects] = useState<ProjectInput[]>(
     initialProjects.length ? initialProjects : [{ ...EMPTY }],
   );
+  const [subteam, setSubteam] = useState<Subteam | null>(initialSubteam);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -51,7 +61,7 @@ export default function ReportForm({
   function onSave() {
     setError("");
     startTransition(async () => {
-      const res = await save(weekStartIso, projects);
+      const res = await save(weekStartIso, projects, subteam);
       if (res.ok) {
         setSaved(true);
         router.refresh();
@@ -69,6 +79,41 @@ export default function ReportForm({
           перенесены в «Сделано» как заготовка, блокеры — как есть.
           Отредактируйте и нажмите «Сохранить отчёт».
         </p>
+      )}
+      {showSubteam && (
+        <div className="card p-5">
+          <span className="block text-xs font-medium uppercase tracking-wide text-muted">
+            Подкоманда
+          </span>
+          <p className="mt-1 text-sm text-muted">
+            Выберите направление — по нему отчёт попадёт в нужный раздел
+            AI-сводки недели.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {SUBTEAMS.map((s) => {
+              const active = subteam === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    setSubteam(s);
+                    setSaved(false);
+                  }}
+                  aria-pressed={active}
+                  title={SUBTEAM_LABELS[s]}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                    active
+                      ? "bg-ink text-card"
+                      : "border border-line bg-card text-muted hover:bg-panel hover:text-ink"
+                  }`}
+                >
+                  {subteamTag(s)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       )}
       {projectNames.length > 0 && (
         <datalist id="project-names">

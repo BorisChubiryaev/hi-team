@@ -120,6 +120,8 @@ export default async function ReportPage({
           initialProjects={initialProjects}
           projectNames={projectNames}
           draftFromLabel={draftFromLabel}
+          initialSubteam={user.subteam}
+          showSubteam
         />
       </main>
     </>
