@@ -2,8 +2,9 @@
 // топ проектов и активность «проект × неделя». Поддерживает фильтры по
 // сотруднику, проекту, статусу проекта и произвольному периоду.
 
-import type { ProjectStatus } from "@prisma/client";
+import type { ProjectStatus, Subteam } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { subteamTag } from "@/lib/subteam";
 import { currentWeekRange, isoDate } from "@/lib/weeks";
 
 export type WeekPoint = { label: string; value: number };
@@ -17,6 +18,8 @@ export type AnalyticsFilters = {
   projectId?: string;
   /** Только проекты с этим статусом. */
   status?: ProjectStatus;
+  /** Только сотрудники этой подкоманды. */
+  subteam?: Subteam;
 };
 
 export type Analytics = {
@@ -34,6 +37,13 @@ export type Analytics = {
   teamSize: number;
   /** Строк с непустыми блокерами по неделям (от старых к новым). */
   blockers: WeekPoint[];
+  /** Сдача за текущую неделю в разрезе подкоманд (AI / BI / без подкоманды). */
+  subteamBreakdown: {
+    key: string;
+    label: string;
+    size: number;
+    submitted: number;
+  }[];
   /** Топ проектов по числу упоминаний за период. */
   topProjects: { id: string; name: string; mentions: number }[];
   /** Активность: сколько человек упоминали проект в каждую неделю периода. */
@@ -54,7 +64,7 @@ const HEATMAP_ROWS = 10;
 export async function getAnalytics(
   filters: AnalyticsFilters,
 ): Promise<Analytics> {
-  const { weeksLimit, userId, projectId, status } = filters;
+  const { weeksLimit, userId, projectId, status, subteam } = filters;
   const { start: currentStart } = currentWeekRange();
 
   const [weeks, projectCounts, activeUsers, allProjects] = await Promise.all([
@@ -76,7 +86,7 @@ export async function getAnalytics(
     // Дисциплина считается только по пишущим отчёты (без Руководителя).
     prisma.user.findMany({
       where: { active: true, role: { not: "DIRECTOR" } },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, subteam: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.project.findMany({
@@ -96,12 +106,19 @@ export async function getAnalytics(
     );
   }
 
+  // Подкоманда каждого активного сотрудника (для фильтра и разбивки).
+  const subteamByUser = new Map<string, Subteam | null>(
+    activeUsers.map((u) => [u.id, u.subteam]),
+  );
+  const activeIds = new Set(activeUsers.map((u) => u.id));
+
   type Row = { projectId: string | null; name: string; blockers: string };
-  // Строки отчётов недели после применения фильтров (сотрудник + проект/статус),
-  // сгруппированные по отчётам (для подсчёта «сдавших»).
+  // Строки отчётов недели после применения фильтров (сотрудник + проект/статус
+  // + подкоманда), сгруппированные по отчётам (для подсчёта «сдавших»).
   const filteredWeek = (w: (typeof weeks)[number]) => {
     const reports = w.reports
       .filter((r) => !userId || r.userId === userId)
+      .filter((r) => !subteam || subteamByUser.get(r.userId) === subteam)
       .map((r) => ({
         userId: r.userId,
         projects: r.projects.filter((p) => {
@@ -113,7 +130,11 @@ export async function getAnalytics(
   };
 
   const chrono = [...weeks].reverse(); // от старых к новым
-  const teamSize = userId ? 1 : activeUsers.length;
+  const teamSize = userId
+    ? 1
+    : subteam
+      ? activeUsers.filter((u) => u.subteam === subteam).length
+      : activeUsers.length;
 
   const discipline: WeekPoint[] = chrono.map((w) => ({
     label: w.label,
@@ -175,6 +196,29 @@ export async function getAnalytics(
     (w) => w.startDate.getTime() < currentStart.getTime(),
   ).at(-1);
 
+  // Сдача за текущую неделю в разрезе подкоманд (обзор, не зависит от фильтров).
+  const stSize: Record<string, number> = { AI: 0, BI: 0, NONE: 0 };
+  for (const u of activeUsers) stSize[u.subteam ?? "NONE"]++;
+  const stSubmitted: Record<string, number> = { AI: 0, BI: 0, NONE: 0 };
+  if (currentWeek) {
+    for (const r of currentWeek.reports) {
+      if (r.projects.length === 0 || !activeIds.has(r.userId)) continue;
+      stSubmitted[subteamByUser.get(r.userId) ?? "NONE"]++;
+    }
+  }
+  const subteamBreakdown = [
+    { key: "AI", label: subteamTag("AI") },
+    { key: "BI", label: subteamTag("BI") },
+    { key: "NONE", label: "Без подкоманды" },
+  ]
+    .filter((b) => b.key !== "NONE" || stSize.NONE > 0)
+    .map((b) => ({
+      key: b.key,
+      label: b.label,
+      size: stSize[b.key],
+      submitted: stSubmitted[b.key],
+    }));
+
   return {
     tiles: {
       activeProjects: statusCount("ACTIVE"),
@@ -196,6 +240,7 @@ export async function getAnalytics(
     discipline,
     teamSize,
     blockers,
+    subteamBreakdown,
     topProjects,
     heatmap,
     options: {

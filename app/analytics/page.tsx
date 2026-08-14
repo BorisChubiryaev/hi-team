@@ -5,6 +5,7 @@ import HBarChart from "@/components/charts/HBarChart";
 import Heatmap from "@/components/charts/Heatmap";
 import { getAnalytics } from "@/lib/analytics";
 import { requireDbUser } from "@/lib/auth";
+import { parseSubteam } from "@/lib/subteam";
 import { shortWeekLabel } from "@/lib/weeks";
 import type { ProjectStatus } from "@prisma/client";
 
@@ -37,12 +38,14 @@ export default async function AnalyticsPage({
   const status = VALID_STATUSES.includes(statusRaw as ProjectStatus)
     ? (statusRaw as ProjectStatus)
     : undefined;
+  const subteam = parseSubteam(firstParam(params.subteam)) ?? undefined;
 
   const a = await getAnalytics({
     weeksLimit: all ? 0 : weeks,
     userId,
     projectId,
     status,
+    subteam,
   });
   const withShort = (points: { label: string; value: number }[]) =>
     points.map((p) => ({ ...p, short: shortWeekLabel(p.label) }));
@@ -85,6 +88,30 @@ export default async function AnalyticsPage({
           />
         </div>
 
+        {/* Сдача в разрезе подкоманд за текущую неделю */}
+        {a.subteamBreakdown.length > 0 && (
+          <div className="mb-6">
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint">
+              Сдача по подкомандам · эта неделя
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {a.subteamBreakdown.map((b) => (
+                <div
+                  key={b.key}
+                  className="card flex items-center justify-between p-4"
+                >
+                  <span className="rounded-full bg-cream px-2.5 py-0.5 font-mono text-xs font-medium text-cream-ink">
+                    {b.label}
+                  </span>
+                  <span className="text-xl font-semibold tabular-nums text-ink">
+                    {b.submitted} / {b.size}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Фильтры — скоупят все графики ниже */}
         <AnalyticsFilters
           users={a.options.users}
@@ -94,6 +121,7 @@ export default async function AnalyticsPage({
           userId={userId}
           projectId={projectId}
           status={status}
+          subteam={subteam}
         />
 
         <div className="grid gap-4 lg:grid-cols-2">

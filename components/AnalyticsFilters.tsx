@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { ProjectStatus } from "@prisma/client";
+import type { ProjectStatus, Subteam } from "@prisma/client";
+import { SUBTEAMS, subteamTag } from "@/lib/subteam";
 
 type Overrides = {
   weeks?: number;
@@ -10,6 +11,7 @@ type Overrides = {
   user?: string;
   project?: string;
   status?: string;
+  subteam?: string;
 };
 
 export default function AnalyticsFilters({
@@ -20,6 +22,7 @@ export default function AnalyticsFilters({
   userId,
   projectId,
   status,
+  subteam,
 }: {
   users: { id: string; label: string }[];
   projects: { id: string; name: string }[];
@@ -28,6 +31,7 @@ export default function AnalyticsFilters({
   userId?: string;
   projectId?: string;
   status?: ProjectStatus;
+  subteam?: Subteam;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -40,6 +44,7 @@ export default function AnalyticsFilters({
       user: userId,
       project: projectId,
       status,
+      subteam,
       ...next,
     };
     const qs = new URLSearchParams();
@@ -49,6 +54,7 @@ export default function AnalyticsFilters({
     if (merged.user) qs.set("user", merged.user);
     if (merged.project) qs.set("project", merged.project);
     if (merged.status) qs.set("status", merged.status);
+    if (merged.subteam) qs.set("subteam", merged.subteam);
     const s = qs.toString();
     startTransition(() => router.push(s ? `/analytics?${s}` : "/analytics"));
   }
@@ -76,6 +82,23 @@ export default function AnalyticsFilters({
           {users.map((u) => (
             <option key={u.id} value={u.id}>
               {u.label}
+            </option>
+          ))}
+        </select>
+      </Labelled>
+
+      <Labelled label="Подкоманда">
+        <select
+          className={selectClass}
+          value={subteam ?? ""}
+          disabled={pending}
+          onChange={(e) => navigate({ subteam: e.target.value || undefined })}
+          aria-label="Фильтр по подкоманде"
+        >
+          <option value="">Все</option>
+          {SUBTEAMS.map((s) => (
+            <option key={s} value={s}>
+              {subteamTag(s)}
             </option>
           ))}
         </select>

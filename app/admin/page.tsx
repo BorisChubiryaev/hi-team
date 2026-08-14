@@ -37,6 +37,7 @@ export default async function AdminPage() {
               <tr className="bg-panel">
                 <Th>Сотрудник</Th>
                 <Th>Роль</Th>
+                <Th>Подкоманда</Th>
                 <Th>Доступ</Th>
                 <Th>Telegram (личные напоминания)</Th>
                 <Th>В отпуске до</Th>
