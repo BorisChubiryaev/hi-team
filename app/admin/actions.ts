@@ -91,6 +91,20 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/**
+ * Сброс пароля: обнуляет passwordHash. Сотрудник задаёт новый через «Первый
+ * вход? Задать пароль». Руководитель нового пароля не видит.
+ */
+export async function resetUserPassword(userId: string): Promise<ActionResult> {
+  await requireManager();
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: null },
+  });
+  revalidatePath("/admin");
+  return { ok: true };
+}
+
 /** Задаёт подкоманду сотрудника (AI/BI) или снимает её (пусто). */
 export async function setUserSubteam(
   userId: string,

@@ -29,9 +29,14 @@ export async function isAllowed(email: string): Promise<boolean> {
   return env.length === 0 || env.includes(e);
 }
 
+// Сессия практически не протухает (10 лет). Деактивация всё равно
+// разлогинивает: requireDbUser на каждом запросе сверяет user.active в БД.
+const SESSION_MAX_AGE = 60 * 60 * 24 * 365 * 10; // 10 лет в секундах
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE },
+  jwt: { maxAge: SESSION_MAX_AGE },
   pages: { signIn: "/login" },
   providers: [
     Credentials({

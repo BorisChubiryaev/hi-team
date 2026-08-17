@@ -537,6 +537,14 @@ export default async function GuidePage() {
                 </dd>
               </div>
               <div>
+                <dt className="font-medium text-ink">Забыли пароль?</dt>
+                <dd>
+                  Попросите LEAD/DIRECTOR нажать «Сбросить пароль» в разделе
+                  «Команда». После этого зайдите через «Первый вход? Задать
+                  пароль» и задайте новый.
+                </dd>
+              </div>
+              <div>
                 <dt className="font-medium text-ink">
                   Можно ли исправить сданный отчёт?
                 </dt>

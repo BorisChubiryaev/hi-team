@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import type { Role, Subteam } from "@prisma/client";
 import {
   deleteUser,
+  resetUserPassword,
   setUserActive,
   setUserRole,
   setUserSubteam,
@@ -41,10 +42,12 @@ export default function AdminUserRow({
   const [telegram, setTelegram] = useState(user.telegramChatId ?? "");
   const [vacation, setVacation] = useState(toDateInput(user.vacationUntil));
   const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
   const [pending, startTransition] = useTransition();
 
   function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>) {
     setError("");
+    setMsg("");
     startTransition(async () => {
       const res = await action();
       if (!res.ok) setError(res.error);
@@ -60,6 +63,23 @@ export default function AdminUserRow({
       return;
     }
     run(() => deleteUser(user.id));
+  }
+
+  function onReset() {
+    if (
+      !window.confirm(
+        `Сбросить пароль ${user.name ?? user.email}? Сотрудник войдёт заново через «Первый вход» и задаст новый пароль.`,
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setMsg("");
+    startTransition(async () => {
+      const res = await resetUserPassword(user.id);
+      if (res.ok) setMsg("Пароль сброшен — сотрудник задаёт новый через «Первый вход».");
+      else setError(res.error);
+    });
   }
 
   const inputClass =
@@ -79,16 +99,27 @@ export default function AdminUserRow({
           )}
         </p>
         <p className="text-xs text-muted">{user.email}</p>
-        {!isSelf && (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
           <button
             type="button"
-            onClick={onDelete}
+            onClick={onReset}
             disabled={pending}
-            className="mt-1 text-xs text-danger transition hover:underline disabled:opacity-40"
+            className="text-xs text-muted transition hover:text-ink hover:underline disabled:opacity-40"
           >
-            Удалить из команды
+            Сбросить пароль
           </button>
-        )}
+          {!isSelf && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={pending}
+              className="text-xs text-danger transition hover:underline disabled:opacity-40"
+            >
+              Удалить из команды
+            </button>
+          )}
+        </div>
+        {msg && <p className="mt-1 text-xs text-success">{msg}</p>}
         {error && <p className="mt-1 text-xs text-danger">{error}</p>}
       </td>
       <td className="p-3">
