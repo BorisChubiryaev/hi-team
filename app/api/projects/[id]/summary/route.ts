@@ -14,10 +14,14 @@ export async function POST(
   if (!session?.user) {
     return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   }
+  const me = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { workspaceId: true },
+  });
 
   const { id } = await params;
   const project = await prisma.project.findUnique({ where: { id } });
-  if (!project) {
+  if (!project || project.workspaceId !== me?.workspaceId) {
     return NextResponse.json({ error: "Проект не найден" }, { status: 404 });
   }
 

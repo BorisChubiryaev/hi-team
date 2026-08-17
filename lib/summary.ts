@@ -13,11 +13,13 @@ const PREVIOUS_WEEKS_FOR_CONTEXT = 2;
 
 export async function generateWeekSummary(
   weekId: string,
+  workspaceId: string | null,
 ): Promise<WeekSummaryResult> {
   const week = await prisma.week.findUnique({
     where: { id: weekId },
     include: {
       reports: {
+        where: { workspaceId },
         include: {
           user: true,
           projects: { orderBy: { order: "asc" } },
@@ -40,6 +42,7 @@ export async function generateWeekSummary(
     take: PREVIOUS_WEEKS_FOR_CONTEXT,
     include: {
       reports: {
+        where: { workspaceId },
         include: {
           user: true,
           projects: { where: { NOT: { blockers: "" } } },
@@ -72,8 +75,8 @@ export async function generateWeekSummary(
 
     await prisma.summary.upsert({
       where: { weekId },
-      update: { content, model },
-      create: { weekId, content, model },
+      update: { content, model, workspaceId },
+      create: { weekId, content, model, workspaceId },
     });
 
     return { ok: true, content, model };

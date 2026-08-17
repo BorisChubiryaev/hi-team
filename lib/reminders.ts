@@ -22,8 +22,8 @@ function nameOf(u: { name: string | null; email: string }): string {
   return u.name ?? u.email.split("@")[0];
 }
 
-/** Кто сдал и кто нет за текущую неделю (среди активных сотрудников). */
-export async function getWeekStatus(): Promise<{
+/** Кто сдал и кто нет за текущую неделю (среди активных сотрудников команды). */
+export async function getWeekStatus(workspaceId: string | null): Promise<{
   label: string;
   submitted: UserLite[];
   missing: UserLite[];
@@ -38,6 +38,7 @@ export async function getWeekStatus(): Promise<{
       where: {
         active: true,
         role: { not: "DIRECTOR" },
+        workspaceId,
         ...notOnVacationFilter(),
       },
       orderBy: { createdAt: "asc" },
@@ -45,7 +46,9 @@ export async function getWeekStatus(): Promise<{
     }),
     prisma.week.findUnique({
       where: { startDate: start },
-      include: { reports: { include: { projects: true } } },
+      include: {
+        reports: { where: { workspaceId }, include: { projects: true } },
+      },
     }),
   ]);
 
@@ -65,18 +68,19 @@ export async function getWeekStatus(): Promise<{
  * Личные напоминания в ЛС тем, кто не сдал. Если сдали все — вместо спама
  * уведомляем руководителей «все сдали».
  */
-export async function sendReminders(): Promise<{
+export async function sendReminders(workspaceId: string | null): Promise<{
   allDone: boolean;
   missing: number;
   notified: number;
 }> {
-  const { label, missing } = await getWeekStatus();
+  const { label, missing } = await getWeekStatus(workspaceId);
 
   if (missing.length === 0) {
     const leads = await prisma.user.findMany({
       where: {
         role: { in: MANAGER_ROLES },
         active: true,
+        workspaceId,
         telegramChatId: { not: null },
       },
       select: { telegramChatId: true },
@@ -105,8 +109,11 @@ export async function sendReminders(): Promise<{
 }
 
 /** Ростер в общий чат: кто сдал / кто нет (или «сдали все»). */
-export async function sendGroupRoster(chatId: string): Promise<boolean> {
-  const { label, submitted, missing } = await getWeekStatus();
+export async function sendGroupRoster(
+  chatId: string,
+  workspaceId: string | null,
+): Promise<boolean> {
+  const { label, submitted, missing } = await getWeekStatus(workspaceId);
 
   let text: string;
   if (missing.length === 0) {

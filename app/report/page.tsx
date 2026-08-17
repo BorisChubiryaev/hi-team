@@ -71,7 +71,7 @@ export default async function ReportPage({
   // Имена активных проектов для автодополнения в форме.
   const projectNames = (
     await prisma.project.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", workspaceId: user.workspaceId },
       orderBy: { name: "asc" },
       select: { name: true },
     })

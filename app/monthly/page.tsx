@@ -16,7 +16,9 @@ export default async function MonthlyPage({
 
   const weeks = await prisma.week.findMany({
     orderBy: { startDate: "desc" },
-    include: { reports: { select: { id: true } } },
+    include: {
+      reports: { where: { workspaceId: me.workspaceId }, select: { id: true } },
+    },
   });
 
   // Месяцы, в которых есть недели с отчётами, новые сверху.

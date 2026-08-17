@@ -62,7 +62,11 @@ export default async function DashboardPage({
   const [users, weeks, totalWeeks, currentWeek] = await Promise.all([
     // Колонки — только те, от кого ждём отчёт (Руководитель не пишет отчёты).
     prisma.user.findMany({
-      where: { active: true, role: { not: "DIRECTOR" } },
+      where: {
+        active: true,
+        role: { not: "DIRECTOR" },
+        workspaceId: me.workspaceId,
+      },
       orderBy: { createdAt: "asc" },
     }),
     prisma.week.findMany({
@@ -70,13 +74,21 @@ export default async function DashboardPage({
       take: limit,
       include: {
         summary: true,
-        reports: { include: { projects: { orderBy: { order: "asc" } } } },
+        reports: {
+          where: { workspaceId: me.workspaceId },
+          include: { projects: { orderBy: { order: "asc" } } },
+        },
       },
     }),
     prisma.week.count(),
     prisma.week.findUnique({
       where: { startDate: start },
-      include: { reports: { include: { projects: true } } },
+      include: {
+        reports: {
+          where: { workspaceId: me.workspaceId },
+          include: { projects: true },
+        },
+      },
     }),
   ]);
 

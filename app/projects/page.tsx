@@ -42,6 +42,7 @@ export default async function ProjectsPage({
   const dir = firstParam(params.dir) === "desc" ? "desc" : "asc";
 
   const projects = await prisma.project.findMany({
+    where: { workspaceId: me.workspaceId },
     orderBy: [{ status: "asc" }, { name: "asc" }],
     include: {
       entries: {

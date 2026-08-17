@@ -11,8 +11,14 @@ export default async function AdminPage() {
   const me = await requireManager();
 
   const [users, allowed, bot] = await Promise.all([
-    prisma.user.findMany({ orderBy: { createdAt: "asc" } }),
-    prisma.allowedEmail.findMany({ orderBy: { email: "asc" } }),
+    prisma.user.findMany({
+      where: { workspaceId: me.workspaceId },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.allowedEmail.findMany({
+      where: { workspaceId: me.workspaceId },
+      orderBy: { email: "asc" },
+    }),
     prisma.botSettings.findUnique({ where: { id: "singleton" } }),
   ]);
 

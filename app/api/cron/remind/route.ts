@@ -6,6 +6,7 @@ import { isAuthorizedCron } from "@/lib/cron";
 import { prisma } from "@/lib/db";
 import { notifyTeam, sendTelegram } from "@/lib/notify";
 import { notOnVacationFilter } from "@/lib/vacation";
+import { defaultWorkspaceId } from "@/lib/workspace";
 import { currentWeekRange, formatWeekLabel } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
@@ -17,15 +18,18 @@ export async function GET(req: Request) {
 
   const { start, end } = currentWeekRange();
   const label = formatWeekLabel(start, end);
+  const wsId = await defaultWorkspaceId(); // мультикоманду — в Фазе 4
 
   const [users, week] = await Promise.all([
     prisma.user.findMany({
-      where: { active: true, ...notOnVacationFilter() },
+      where: { active: true, workspaceId: wsId, ...notOnVacationFilter() },
       orderBy: { createdAt: "asc" },
     }),
     prisma.week.findUnique({
       where: { startDate: start },
-      include: { reports: { include: { projects: true } } },
+      include: {
+        reports: { where: { workspaceId: wsId }, include: { projects: true } },
+      },
     }),
   ]);
 

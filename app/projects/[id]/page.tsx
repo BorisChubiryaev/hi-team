@@ -30,7 +30,8 @@ export default async function ProjectPage({
       },
     },
   });
-  if (!project) notFound();
+  // Проект чужой команды не показываем.
+  if (!project || project.workspaceId !== me.workspaceId) notFound();
 
   const otherProjects = isLead
     ? await prisma.project.findMany({

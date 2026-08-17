@@ -10,6 +10,8 @@ import { currentWeekRange, isoDate } from "@/lib/weeks";
 export type WeekPoint = { label: string; value: number };
 
 export type AnalyticsFilters = {
+  /** Команда (обязательный скоуп мультитенанта). */
+  workspaceId: string | null;
   /** Сколько последних недель включать; 0 = все. */
   weeksLimit: number;
   /** Только отчёты этого сотрудника. */
@@ -64,7 +66,8 @@ const HEATMAP_ROWS = 10;
 export async function getAnalytics(
   filters: AnalyticsFilters,
 ): Promise<Analytics> {
-  const { weeksLimit, userId, projectId, status, subteam } = filters;
+  const { workspaceId, weeksLimit, userId, projectId, status, subteam } =
+    filters;
   const { start: currentStart } = currentWeekRange();
 
   const [weeks, projectCounts, activeUsers, allProjects] = await Promise.all([
@@ -73,6 +76,7 @@ export async function getAnalytics(
       ...(weeksLimit > 0 ? { take: weeksLimit } : {}),
       include: {
         reports: {
+          where: { workspaceId },
           select: {
             userId: true,
             projects: {
@@ -82,14 +86,19 @@ export async function getAnalytics(
         },
       },
     }),
-    prisma.project.groupBy({ by: ["status"], _count: true }),
+    prisma.project.groupBy({
+      by: ["status"],
+      where: { workspaceId },
+      _count: true,
+    }),
     // Дисциплина считается только по пишущим отчёты (без Руководителя).
     prisma.user.findMany({
-      where: { active: true, role: { not: "DIRECTOR" } },
+      where: { active: true, role: { not: "DIRECTOR" }, workspaceId },
       select: { id: true, name: true, email: true, subteam: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.project.findMany({
+      where: { workspaceId },
       select: { id: true, name: true, status: true },
       orderBy: { name: "asc" },
     }),

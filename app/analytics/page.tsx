@@ -41,6 +41,7 @@ export default async function AnalyticsPage({
   const subteam = parseSubteam(firstParam(params.subteam)) ?? undefined;
 
   const a = await getAnalytics({
+    workspaceId: me.workspaceId,
     weeksLimit: all ? 0 : weeks,
     userId,
     projectId,

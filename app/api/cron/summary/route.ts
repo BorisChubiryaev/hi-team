@@ -24,22 +24,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ week: label, skipped: "Неделя ещё не создана" });
   }
 
-  const result = await generateWeekSummary(week.id);
-  if (!result.ok) {
-    // «Нет отчётов» — штатная ситуация для cron, не ошибка.
-    if (result.status === 400) {
-      return NextResponse.json({ week: label, skipped: result.error });
-    }
-    return NextResponse.json(
-      { week: label, error: result.error },
-      { status: result.status },
+  // Генерируем сводку для каждой команды по её отчётам.
+  const workspaces = await prisma.workspace.findMany({ select: { id: true } });
+  const results: Record<string, unknown>[] = [];
+  for (const ws of workspaces) {
+    const r = await generateWeekSummary(week.id, ws.id);
+    results.push(
+      r.ok
+        ? { workspace: ws.id, model: r.model }
+        : { workspace: ws.id, skipped: r.error },
     );
   }
 
   const appUrl = process.env.APP_URL || "http://localhost:3000";
+  // Уведомления пока общие (env-канал); per-workspace — Фаза 4.
   const notified = await notifyTeam(
     `📋 AI-сводка за неделю ${label} готова: ${appUrl}/dashboard`,
   );
 
-  return NextResponse.json({ week: label, model: result.model, notified });
+  return NextResponse.json({ week: label, workspaces: results, notified });
 }

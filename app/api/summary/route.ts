@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { generateWeekSummary } from "@/lib/summary";
 
 export async function POST(req: Request) {
@@ -18,7 +19,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "weekId обязателен" }, { status: 400 });
   }
 
-  const result = await generateWeekSummary(weekId);
+  const me = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { workspaceId: true },
+  });
+  const result = await generateWeekSummary(weekId, me?.workspaceId ?? null);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }

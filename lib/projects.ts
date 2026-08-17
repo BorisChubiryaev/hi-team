@@ -17,27 +17,35 @@ export function normalizeProjectName(name: string): string {
  */
 export async function ensureProject(
   name: string,
+  workspaceId: string | null,
   db: Db = prisma,
 ): Promise<string | null> {
   const normalized = normalizeProjectName(name);
   if (!normalized) return null;
 
+  // Ищем в рамках команды (у каждой команды свой каталог проектов).
   const existing = await db.project.findFirst({
-    where: { name: { equals: normalized, mode: "insensitive" } },
+    where: {
+      workspaceId,
+      name: { equals: normalized, mode: "insensitive" },
+    },
     select: { id: true },
   });
   if (existing) return existing.id;
 
   try {
     const created = await db.project.create({
-      data: { name: normalized },
+      data: { name: normalized, workspaceId },
       select: { id: true },
     });
     return created.id;
   } catch {
-    // Параллельное создание того же имени (уникальный индекс) — перечитываем.
+    // Параллельное создание того же имени — перечитываем.
     const again = await db.project.findFirst({
-      where: { name: { equals: normalized, mode: "insensitive" } },
+      where: {
+        workspaceId,
+        name: { equals: normalized, mode: "insensitive" },
+      },
       select: { id: true },
     });
     if (again) return again.id;

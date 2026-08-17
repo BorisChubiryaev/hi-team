@@ -50,7 +50,7 @@ export default async function DirectorPage({
   // Имена активных проектов для автодополнения (тот же каталог, что у команды).
   const projectNames = (
     await prisma.project.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", workspaceId: user.workspaceId },
       orderBy: { name: "asc" },
       select: { name: true },
     })

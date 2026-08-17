@@ -13,6 +13,7 @@ import { isAuthorizedCron } from "@/lib/cron";
 import { prisma } from "@/lib/db";
 import { localParts } from "@/lib/localtime";
 import { sendGroupRoster, sendReminders } from "@/lib/reminders";
+import { defaultWorkspaceId } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,10 @@ export async function GET(req: Request) {
   if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   }
+
+  // Пока настройки бота одни на всю систему — работаем по команде по умолчанию.
+  // Мультикомандный бот (BotSettings на команду) — Фаза 4.
+  const wsId = await defaultWorkspaceId();
 
   const settings = await prisma.botSettings.findUnique({
     where: { id: "singleton" },
@@ -58,7 +63,7 @@ export async function GET(req: Request) {
   const reminderDue = reminderReason === null;
 
   if (force === "reminder" || reminderDue) {
-    ran.reminder = await sendReminders();
+    ran.reminder = await sendReminders(wsId);
     status.reminder = force === "reminder" ? "отправлено (force)" : "отправлено";
     if (reminderDue) {
       await prisma.botSettings.update({
@@ -81,7 +86,7 @@ export async function GET(req: Request) {
   const groupDue = groupReason === null;
 
   if ((force === "group" || groupDue) && settings.groupChatId) {
-    ran.group = await sendGroupRoster(settings.groupChatId);
+    ran.group = await sendGroupRoster(settings.groupChatId, wsId);
     status.group = force === "group" ? "отправлено (force)" : "отправлено";
     if (groupDue) {
       await prisma.botSettings.update({

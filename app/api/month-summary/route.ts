@@ -13,6 +13,11 @@ export async function POST(req: Request) {
   if (!session?.user) {
     return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   }
+  const me = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { workspaceId: true },
+  });
+  const workspaceId = me?.workspaceId ?? null;
 
   let month: string | undefined;
   try {
@@ -37,6 +42,7 @@ export async function POST(req: Request) {
     include: {
       summary: true,
       reports: {
+        where: { workspaceId },
         include: {
           user: true,
           projects: { orderBy: { order: "asc" } },
@@ -68,8 +74,8 @@ export async function POST(req: Request) {
 
     await prisma.monthSummary.upsert({
       where: { month },
-      update: { content, model },
-      create: { month, content, model },
+      update: { content, model, workspaceId },
+      create: { month, content, model, workspaceId },
     });
 
     return NextResponse.json({ content, model });

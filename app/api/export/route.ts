@@ -158,22 +158,29 @@ async function docxResponse(children: Paragraph[], filename: string) {
 
 // ---------------------------------------------------------------------------
 
-const weekInclude = {
+// Отчёты недели — только из указанной команды (мультитенант).
+const weekInclude = (workspaceId: string | null) => ({
   summary: true,
   reports: {
+    where: { workspaceId },
     include: {
       user: true,
       projects: { orderBy: { order: "asc" as const } },
     },
     orderBy: { user: { createdAt: "asc" as const } },
   },
-};
+});
 
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
   }
+  const me = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { workspaceId: true },
+  });
+  const workspaceId = me?.workspaceId ?? null;
 
   const url = new URL(req.url);
   const weekId = url.searchParams.get("weekId");
@@ -183,7 +190,7 @@ export async function GET(req: Request) {
   if (weekId) {
     const week = await prisma.week.findUnique({
       where: { id: weekId },
-      include: weekInclude,
+      include: weekInclude(workspaceId),
     });
     if (!week) {
       return NextResponse.json({ error: "Неделя не найдена" }, { status: 404 });
@@ -203,7 +210,7 @@ export async function GET(req: Request) {
       prisma.week.findMany({
         where: { startDate: { gte: from, lt: to } },
         orderBy: { startDate: "asc" },
-        include: weekInclude,
+        include: weekInclude(workspaceId),
       }),
       prisma.monthSummary.findUnique({ where: { month } }),
     ]);

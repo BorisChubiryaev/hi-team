@@ -36,6 +36,13 @@ export async function saveUserReport(
     await prisma.user.update({ where: { id: userId }, data: { subteam } });
   }
 
+  // Команда автора — отчёт и проекты привязываем к ней.
+  const author = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { workspaceId: true },
+  });
+  const workspaceId = author?.workspaceId ?? null;
+
   const week = await prisma.week.upsert({
     where: { startDate: target.start },
     update: {},
@@ -61,7 +68,7 @@ export async function saveUserReport(
   const idByName = new Map<string, string | null>();
   for (const p of cleaned) {
     if (p.name && !idByName.has(p.name)) {
-      idByName.set(p.name, await ensureProject(p.name));
+      idByName.set(p.name, await ensureProject(p.name, workspaceId));
     }
   }
 
@@ -69,8 +76,8 @@ export async function saveUserReport(
   // без вложенной транзакционной записи (надёжнее на пуле Neon).
   const report = await prisma.report.upsert({
     where: { userId_weekId: { userId, weekId: week.id } },
-    update: {},
-    create: { userId, weekId: week.id },
+    update: { workspaceId },
+    create: { userId, weekId: week.id, workspaceId },
   });
 
   await prisma.$transaction([

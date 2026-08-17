@@ -219,8 +219,8 @@ export async function updateBotSettings(input: {
 
 /** Немедленно отправить личные напоминания (тест/ручной запуск). Только LEAD. */
 export async function sendReminderNow(): Promise<{ message: string }> {
-  await requireManager();
-  const r = await sendReminders();
+  const me = await requireManager();
+  const r = await sendReminders(me.workspaceId);
   return {
     message: r.allDone
       ? "Все уже сдали — уведомил руководителей."
@@ -230,14 +230,14 @@ export async function sendReminderNow(): Promise<{ message: string }> {
 
 /** Немедленно отправить сводку в общий чат. Только LEAD. */
 export async function sendGroupRosterNow(): Promise<{ message: string }> {
-  await requireManager();
+  const me = await requireManager();
   const s = await prisma.botSettings.findUnique({ where: { id: "singleton" } });
   if (!s?.groupChatId) {
     return {
       message: "Групповой чат не подключён. Добавьте бота в чат и отправьте /here.",
     };
   }
-  const ok = await sendGroupRoster(s.groupChatId);
+  const ok = await sendGroupRoster(s.groupChatId, me.workspaceId);
   return {
     message: ok
       ? "Сводка отправлена в общий чат."
@@ -247,14 +247,15 @@ export async function sendGroupRosterNow(): Promise<{ message: string }> {
 
 /** Добавляет почту в allowlist. */
 export async function addAllowedEmail(email: string): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
   const e = email.trim().toLowerCase();
   if (!EMAIL_RE.test(e)) return { ok: false, error: "Некорректная почта" };
 
+  // Почта добавляется в команду менеджера — так новый человек попадёт туда же.
   await prisma.allowedEmail.upsert({
     where: { email: e },
-    update: {},
-    create: { email: e },
+    update: { workspaceId: me.workspaceId },
+    create: { email: e, workspaceId: me.workspaceId },
   });
   revalidatePath("/admin");
   return { ok: true };
