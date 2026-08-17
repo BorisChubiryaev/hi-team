@@ -56,13 +56,15 @@ export default function LoginForm() {
           <input
             id="name"
             type="text"
-            required
             autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Иван Иванов"
             className="input mt-1"
           />
+          <p className="mt-1 text-xs text-faint">
+            Сброс пароля? Можно оставить пустым — имя не изменится.
+          </p>
         </div>
       )}
 

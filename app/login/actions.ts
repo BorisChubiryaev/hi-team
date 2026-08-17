@@ -23,20 +23,24 @@ export async function setPassword(
     return { ok: false, error: "Пароль должен быть минимум 6 символов" };
   }
   const cleanName = name?.trim() || null;
-  if (!cleanName) {
-    return { ok: false, error: "Укажите имя и фамилию" };
-  }
 
   const user = await prisma.user.findUnique({ where: { email: e } });
   if (user?.passwordHash) {
     return { ok: false, error: "Пароль уже задан — просто войдите" };
   }
 
+  // Имя нужно только для НОВОГО аккаунта (первый вход нового человека).
+  // При сбросе у существующего аккаунта имя уже есть — если поле оставили
+  // пустым, не трогаем его; заполнили — перезаписываем.
+  if (!user && !cleanName) {
+    return { ok: false, error: "Укажите имя и фамилию" };
+  }
+
   const passwordHash = await bcrypt.hash(password, 10);
   if (user) {
     await prisma.user.update({
       where: { email: e },
-      data: { passwordHash, name: cleanName },
+      data: { passwordHash, ...(cleanName ? { name: cleanName } : {}) },
     });
   } else {
     await prisma.user.create({
