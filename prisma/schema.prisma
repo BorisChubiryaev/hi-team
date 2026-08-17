@@ -27,6 +27,29 @@ enum Subteam {
   BI // направление BI
 }
 
+// Рабочее пространство (команда). Мультитенант: данные разных команд не
+// пересекаются — у «командных» сущностей есть workspaceId, а запросы
+// фильтруются по нему. Фаза 1: поле nullable, всё переносится в команду по
+// умолчанию бэкфиллом; ужесточение и скоуп запросов — следующими фазами.
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  // Переопределения системных промптов AI-сводок (null = дефолт из кода).
+  weekPrompt  String? @db.Text
+  monthPrompt String? @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  projects       Project[]
+  reports        Report[]
+  summaries      Summary[]
+  monthSummaries MonthSummary[]
+  allowedEmails  AllowedEmail[]
+  botSettings    BotSettings[]
+}
+
 model User {
   id               String   @id @default(cuid())
   name             String?
@@ -34,6 +57,8 @@ model User {
   passwordHash     String? // bcrypt; null = пароль ещё не задан (первый вход)
   image            String?
   role             Role     @default(MEMBER)
+  workspaceId      String? // команда, к которой принадлежит пользователь
+  isSuperAdmin     Boolean  @default(false) // управляет всеми командами
   subteam          Subteam? // подкоманда (AI/BI): группировка в AI-сводке; null = не выбрана
   active           Boolean  @default(true) // false = ушёл из команды: не логинится, не в дашборде
   vacationUntil    DateTime? @db.Date // в отпуске по эту дату включительно; пусто = не в отпуске. Пока в отпуске — не ждём отчёт и не шлём напоминания
@@ -41,6 +66,7 @@ model User {
   telegramUsername String? // @username на момент привязки — для отображения
   createdAt        DateTime @default(now())
 
+  workspace       Workspace? @relation(fields: [workspaceId], references: [id])
   reports         Report[]
   telegramLink    TelegramLink?
   reviewPreps     ReviewPrep[]
@@ -83,6 +109,7 @@ model TelegramLink {
 // Время задаётся в timezone; почасовой крон проверяет совпадение.
 model BotSettings {
   id              String   @id @default("singleton")
+  workspaceId     String? // одна настройка бота на команду; @unique добавим в Фазе 4
   // Личные напоминания в ЛС тем, кто не сдал отчёт.
   reminderEnabled Boolean  @default(false)
   reminderDow     Int      @default(4) // день недели 1=Пн … 7=Вс
@@ -98,6 +125,8 @@ model BotSettings {
   lastReminderKey String?
   lastGroupKey    String?
   updatedAt       DateTime @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id])
 }
 
 // Состояние диалога бота по чату (serverless — храним в БД, не в памяти).
@@ -111,9 +140,12 @@ model TelegramDialog {
 
 // Allowlist почт для входа. Если таблица пуста — fallback на env ALLOWED_EMAILS.
 model AllowedEmail {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  email       String   @unique
+  workspaceId String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id])
 }
 
 // ---------------------------------------------------------------------------
@@ -129,6 +161,7 @@ enum ProjectStatus {
 // Проект/направление как сущность: статус, история по неделям, AI-статус.
 model Project {
   id             String        @id @default(cuid())
+  workspaceId    String?
   name           String        @unique
   status         ProjectStatus @default(ACTIVE)
   aiSummary      String?       @db.Text // последняя AI-сводка по проекту
@@ -137,7 +170,8 @@ model Project {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  entries ReportProject[]
+  workspace Workspace?      @relation(fields: [workspaceId], references: [id])
+  entries   ReportProject[]
 }
 
 model Week {
@@ -154,15 +188,17 @@ model Week {
 }
 
 model Report {
-  id        String   @id @default(cuid())
-  userId    String
-  weekId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String
+  weekId      String
+  workspaceId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  week     Week            @relation(fields: [weekId], references: [id], onDelete: Cascade)
-  projects ReportProject[]
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  week      Week            @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  workspace Workspace?      @relation(fields: [workspaceId], references: [id])
+  projects  ReportProject[]
 
   @@unique([userId, weekId])
 }
@@ -230,21 +266,26 @@ model Note {
 
 // Сгенерированная ИИ сводка месяца (для отчётности наверх)
 model MonthSummary {
-  id        String   @id @default(cuid())
-  month     String   @unique // YYYY-MM
-  content   String   @db.Text
-  model     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  month       String   @unique // YYYY-MM
+  workspaceId String?
+  content     String   @db.Text
+  model       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id])
 }
 
 // Сгенерированная ИИ сводка недели для руководителя
 model Summary {
-  id        String   @id @default(cuid())
-  weekId    String   @unique
-  content   String   @db.Text
-  model     String
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  weekId      String   @unique
+  workspaceId String?
+  content     String   @db.Text
+  model       String
+  createdAt   DateTime @default(now())
 
-  week Week @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  week      Week       @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id])
 }
