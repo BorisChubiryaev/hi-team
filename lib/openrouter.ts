@@ -1,8 +1,6 @@
 // Обёртка над OpenRouter Chat Completions для суммаризации недельных отчётов.
 // Ключ берётся только из серверного окружения и никогда не уходит в браузер.
 
-import type { Subteam } from "@prisma/client";
-
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL =
   process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
@@ -12,9 +10,9 @@ const DEFAULT_MODEL =
 // Наши сводки короткие — 2048 токенов с запасом хватает.
 const MAX_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS) || 2048;
 
-const SYSTEM_PROMPT = `Ты — ассистент, который готовит краткую деловую сводку по еженедельным отчётам команды для руководителя. Команда делится на две подкоманды: AI и BI.
+const SYSTEM_PROMPT = `Ты — ассистент, который готовит краткую деловую сводку по еженедельным отчётам команды для руководителя. Команда может делиться на подкоманды (направления).
 
-Пиши строго по-русски, по делу, без воды. Раздели сводку на два верхнеуровневых раздела по подкомандам — сначала «## AI», затем «## BI». В отчётах каждый сотрудник помечен своей подкомандой; относи его достижения, блокеры и планы в соответствующий раздел. Если у части сотрудников подкоманда не указана — добавь в конце раздел «## Без подкоманды». Пустые разделы не создавай.
+Пиши строго по-русски, по делу, без воды. В отчётах сотрудники сгруппированы по подкомандам заголовками уровня «## <название>». Сохрани это деление: сделай верхнеуровневый раздел на каждую подкоманду, встреченную в отчётах (в том же порядке); сотрудников без подкоманды собери в разделе «## Без подкоманды». Пустые разделы не создавай.
 
 Внутри каждого раздела подкоманды придерживайся структуры:
 
@@ -30,8 +28,8 @@ export type WeekReportInput = {
   weekLabel: string;
   reports: {
     name: string;
-    /** Подкоманда автора (AI/BI); null — ещё не выбрана. */
-    subteam?: Subteam | null;
+    /** Название подкоманды автора; null — ещё не выбрана. */
+    subteam?: string | null;
     projects: {
       name: string;
       done: string;
@@ -51,11 +49,19 @@ export type WeekReportInput = {
 function buildUserPrompt(input: WeekReportInput): string {
   const lines: string[] = [`Отчёты команды за неделю ${input.weekLabel}.`, ""];
 
-  // Группируем отчёты по подкомандам, чтобы модель делила сводку на AI и BI.
-  const groups: { title: string; match: (s: Subteam | null | undefined) => boolean }[] = [
-    { title: "Подкоманда AI", match: (s) => s === "AI" },
-    { title: "Подкоманда BI", match: (s) => s === "BI" },
-    { title: "Без подкоманды", match: (s) => s !== "AI" && s !== "BI" },
+  // Группируем отчёты по подкомандам (в порядке первого появления), чтобы
+  // модель делила сводку по разделам. Набор подкоманд задаётся командой.
+  const labels: string[] = [];
+  for (const r of input.reports) {
+    const s = r.subteam?.trim();
+    if (s && !labels.includes(s)) labels.push(s);
+  }
+  const groups: { title: string; match: (s?: string | null) => boolean }[] = [
+    ...labels.map((label) => ({
+      title: label,
+      match: (s?: string | null) => (s ?? "").trim() === label,
+    })),
+    { title: "Без подкоманды", match: (s?: string | null) => !s?.trim() },
   ];
 
   for (const g of groups) {

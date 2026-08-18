@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminPage() {
   const me = await requireManager();
 
-  const [users, allowed, bot] = await Promise.all([
+  const [users, allowed, bot, subteams] = await Promise.all([
     prisma.user.findMany({
       where: { workspaceId: me.workspaceId },
       orderBy: { createdAt: "asc" },
@@ -20,6 +20,11 @@ export default async function AdminPage() {
       orderBy: { email: "asc" },
     }),
     prisma.botSettings.findFirst({ where: { workspaceId: me.workspaceId } }),
+    prisma.subteam.findMany({
+      where: { workspaceId: me.workspaceId ?? "" },
+      orderBy: { order: "asc" },
+      select: { id: true, key: true, label: true },
+    }),
   ]);
 
   return (
@@ -51,7 +56,12 @@ export default async function AdminPage() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <AdminUserRow key={u.id} user={u} isSelf={u.id === me.id} />
+                <AdminUserRow
+                  key={u.id}
+                  user={u}
+                  subteams={subteams}
+                  isSelf={u.id === me.id}
+                />
               ))}
             </tbody>
           </table>

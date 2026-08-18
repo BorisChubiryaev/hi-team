@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { Subteam } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { saveUserReport, type ProjectInput } from "@/lib/reports";
-import { parseSubteam } from "@/lib/subteam";
 import { currentWeekRange, isoDate } from "@/lib/weeks";
 
 // ВАЖНО: файл с "use server" должен экспортировать только async-функции.
@@ -27,12 +25,12 @@ function isNextControlFlow(e: unknown): boolean {
 export async function saveReport(
   weekStartIso: string,
   projects: ProjectInput[],
-  subteam?: Subteam | null,
+  subteamId?: string | null,
 ): Promise<SaveResult> {
   try {
     const user = await requireUser();
     const week = weekStartIso || isoDate(currentWeekRange().start);
-    await saveUserReport(user.id, week, projects, parseSubteam(subteam));
+    await saveUserReport(user.id, week, projects, subteamId);
 
     revalidatePath("/dashboard");
     revalidatePath("/report");

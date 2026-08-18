@@ -1,7 +1,6 @@
 // Сохранение недельного отчёта — общая логика для веб-формы (server action)
 // и Telegram-бота. Валидирует неделю и привязывает строки к проектам.
 
-import type { Subteam } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ensureProject, normalizeProjectName } from "@/lib/projects";
 import { EDITABLE_WEEKS, isoDate, recentWeeks } from "@/lib/weeks";
@@ -21,9 +20,9 @@ export async function saveUserReport(
   userId: string,
   weekStartIso: string,
   projects: ProjectInput[],
-  // Подкоманда автора: если передана — обновляем профиль (сотрудник выбирает
-  // её в форме отчёта). Бот не передаёт — сохраняется ранее выбранная.
-  subteam?: Subteam | null,
+  // Подкоманда автора (id): если передана — обновляем профиль (сотрудник
+  // выбирает её в форме). undefined = не трогаем (бот не передаёт).
+  subteamId?: string | null,
 ): Promise<number> {
   const target = recentWeeks(EDITABLE_WEEKS).find(
     (w) => isoDate(w.start) === weekStartIso,
@@ -32,16 +31,28 @@ export async function saveUserReport(
     throw new Error("Эту неделю уже нельзя заполнить");
   }
 
-  if (subteam) {
-    await prisma.user.update({ where: { id: userId }, data: { subteam } });
-  }
-
   // Команда автора — отчёт и проекты привязываем к ней.
   const author = await prisma.user.findUnique({
     where: { id: userId },
     select: { workspaceId: true },
   });
   const workspaceId = author?.workspaceId ?? null;
+
+  // Обновляем подкоманду, только если она принадлежит команде автора (или null).
+  if (subteamId !== undefined) {
+    let valid: string | null = null;
+    if (subteamId) {
+      const st = await prisma.subteam.findFirst({
+        where: { id: subteamId, workspaceId: workspaceId ?? "" },
+        select: { id: true },
+      });
+      valid = st?.id ?? null;
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { subteamId: valid },
+    });
+  }
 
   const week = await prisma.week.upsert({
     where: { startDate: target.start },

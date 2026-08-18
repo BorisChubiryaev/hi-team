@@ -77,6 +77,13 @@ export default async function ReportPage({
     })
   ).map((p) => p.name);
 
+  // Подкоманды команды автора — для выбора в форме.
+  const subteams = await prisma.subteam.findMany({
+    where: { workspaceId: user.workspaceId ?? "" },
+    orderBy: { order: "asc" },
+    select: { id: true, key: true, label: true },
+  });
+
   return (
     <>
       <Header
@@ -121,7 +128,8 @@ export default async function ReportPage({
           initialProjects={initialProjects}
           projectNames={projectNames}
           draftFromLabel={draftFromLabel}
-          initialSubteam={user.subteam}
+          initialSubteamId={user.subteamId}
+          subteams={subteams}
           showSubteam
         />
       </main>

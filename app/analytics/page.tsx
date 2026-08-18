@@ -4,8 +4,8 @@ import ColumnChart from "@/components/charts/ColumnChart";
 import HBarChart from "@/components/charts/HBarChart";
 import Heatmap from "@/components/charts/Heatmap";
 import { getAnalytics } from "@/lib/analytics";
+// (подкоманды теперь на команду — валидируются по options из getAnalytics)
 import { requireDbUser } from "@/lib/auth";
-import { parseSubteam } from "@/lib/subteam";
 import { shortWeekLabel } from "@/lib/weeks";
 import type { ProjectStatus } from "@prisma/client";
 
@@ -38,7 +38,7 @@ export default async function AnalyticsPage({
   const status = VALID_STATUSES.includes(statusRaw as ProjectStatus)
     ? (statusRaw as ProjectStatus)
     : undefined;
-  const subteam = parseSubteam(firstParam(params.subteam)) ?? undefined;
+  const subteamId = firstParam(params.subteam) || undefined;
 
   const a = await getAnalytics({
     workspaceId: me.workspaceId,
@@ -46,7 +46,7 @@ export default async function AnalyticsPage({
     userId,
     projectId,
     status,
-    subteam,
+    subteamId,
   });
   const withShort = (points: { label: string; value: number }[]) =>
     points.map((p) => ({ ...p, short: shortWeekLabel(p.label) }));
@@ -123,7 +123,8 @@ export default async function AnalyticsPage({
           userId={userId}
           projectId={projectId}
           status={status}
-          subteam={subteam}
+          subteams={a.options.subteams}
+          subteamId={subteamId}
         />
 
         <div className="grid gap-4 lg:grid-cols-2">

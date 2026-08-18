@@ -133,6 +133,35 @@ export async function addAllowedEmailToWorkspace(
   return { ok: true };
 }
 
+/** Добавляет подкоманду (направление) в команду. */
+export async function addSubteam(
+  workspaceId: string,
+  key: string,
+  label: string,
+): Promise<ActionResult> {
+  await requireSuperAdmin();
+  if (!workspaceId) return { ok: false, error: "Выберите команду" };
+  const k = key.trim();
+  const l = label.trim() || k;
+  if (!k) return { ok: false, error: "Укажите тег (напр. AI)" };
+  const exists = await prisma.subteam.findFirst({ where: { workspaceId, key: k } });
+  if (exists) return { ok: false, error: "Такой тег уже есть в команде" };
+  const count = await prisma.subteam.count({ where: { workspaceId } });
+  await prisma.subteam.create({
+    data: { workspaceId, key: k, label: l, order: count },
+  });
+  revalidatePath("/superadmin");
+  return { ok: true };
+}
+
+/** Удаляет подкоманду (у сотрудников она обнулится — onDelete: SetNull). */
+export async function removeSubteam(id: string): Promise<ActionResult> {
+  await requireSuperAdmin();
+  await prisma.subteam.delete({ where: { id } });
+  revalidatePath("/superadmin");
+  return { ok: true };
+}
+
 /** Удаляет почту из allowlist. */
 export async function removeAllowedEmail(id: string): Promise<ActionResult> {
   await requireSuperAdmin();

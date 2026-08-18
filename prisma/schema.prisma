@@ -22,9 +22,19 @@ enum Role {
 
 // Подкоманда сотрудника: команда делится на две подгруппы. Определяет, в какой
 // раздел AI-сводки недели попадают его отчёты. null = ещё не выбрана.
-enum Subteam {
-  AI // направление AI
-  BI // направление BI
+// Подкоманда (направление) в рамках команды. У каждой команды свой набор
+// (напр. AI/BI у первой, у другой — свои). key — короткий тег для бейджа.
+model Subteam {
+  id          String @id @default(cuid())
+  workspaceId String
+  key         String // короткий тег, напр. «AI»
+  label       String // отображаемое название
+  order       Int    @default(0)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  users     User[]
+
+  @@unique([workspaceId, key])
 }
 
 // Рабочее пространство (команда). Мультитенант: данные разных команд не
@@ -42,6 +52,7 @@ model Workspace {
   updatedAt DateTime @updatedAt
 
   users          User[]
+  subteams       Subteam[]
   projects       Project[]
   reports        Report[]
   summaries      Summary[]
@@ -59,7 +70,7 @@ model User {
   role             Role     @default(MEMBER)
   workspaceId      String? // команда, к которой принадлежит пользователь
   isSuperAdmin     Boolean  @default(false) // управляет всеми командами
-  subteam          Subteam? // подкоманда (AI/BI): группировка в AI-сводке; null = не выбрана
+  subteamId        String? // подкоманда (направление) внутри команды; null = не выбрана
   active           Boolean  @default(true) // false = ушёл из команды: не логинится, не в дашборде
   vacationUntil    DateTime? @db.Date // в отпуске по эту дату включительно; пусто = не в отпуске. Пока в отпуске — не ждём отчёт и не шлём напоминания
   telegramChatId   String?  @unique // личный chat_id (привязка Telegram, персональные напоминания)
@@ -67,6 +78,7 @@ model User {
   createdAt        DateTime @default(now())
 
   workspace       Workspace? @relation(fields: [workspaceId], references: [id])
+  subteam         Subteam?   @relation(fields: [subteamId], references: [id])
   reports         Report[]
   telegramLink    TelegramLink?
   reviewPreps     ReviewPrep[]

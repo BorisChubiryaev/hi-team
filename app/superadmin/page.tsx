@@ -32,6 +32,11 @@ export default async function SuperAdminPage() {
     }),
   ]);
 
+  const subteams = await prisma.subteam.findMany({
+    orderBy: [{ workspaceId: "asc" }, { order: "asc" }],
+    select: { id: true, key: true, label: true, workspaceId: true },
+  });
+
   return (
     <>
       <Header email={me.email} active="superadmin" role={me.role} isSuperAdmin={me.isSuperAdmin} />
@@ -58,6 +63,7 @@ export default async function SuperAdminPage() {
           }))}
           users={users}
           allowed={allowed}
+          subteams={subteams}
         />
       </main>
     </>

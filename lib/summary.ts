@@ -21,7 +21,7 @@ export async function generateWeekSummary(
       reports: {
         where: { workspaceId },
         include: {
-          user: true,
+          user: { include: { subteam: true } },
           projects: { orderBy: { order: "asc" } },
         },
       },
@@ -76,7 +76,7 @@ export async function generateWeekSummary(
         weekLabel: week.label,
         reports: week.reports.map((r) => ({
           name: r.user.name ?? r.user.email,
-          subteam: r.user.subteam,
+          subteam: r.user.subteam?.label ?? null,
           projects: r.projects,
         })),
         previousBlockers,

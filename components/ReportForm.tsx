@@ -2,10 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Subteam } from "@prisma/client";
 import { saveReport } from "@/app/report/actions";
 import type { ProjectInput } from "@/lib/reports";
-import { SUBTEAMS, SUBTEAM_LABELS, subteamTag } from "@/lib/subteam";
+import { subteamTag, type SubteamLite } from "@/lib/subteam";
 
 const EMPTY: ProjectInput = { name: "", done: "", blockers: "", plans: "" };
 
@@ -14,7 +13,8 @@ export default function ReportForm({
   initialProjects,
   projectNames = [],
   draftFromLabel = null,
-  initialSubteam = null,
+  initialSubteamId = null,
+  subteams = [],
   showSubteam = false,
   save = saveReport,
 }: {
@@ -22,22 +22,23 @@ export default function ReportForm({
   initialProjects: ProjectInput[];
   projectNames?: string[];
   draftFromLabel?: string | null;
-  // Текущая подкоманда автора и нужно ли показывать её выбор (только командный
-  // отчёт; раздел руководителя выбор подкоманды не показывает).
-  initialSubteam?: Subteam | null;
+  // Текущая подкоманда автора (id) и набор подкоманд команды; нужно ли
+  // показывать выбор (только командный отчёт; раздел руководителя — нет).
+  initialSubteamId?: string | null;
+  subteams?: SubteamLite[];
   showSubteam?: boolean;
   // Функция сохранения (server action). По умолчанию — командный отчёт;
   // раздел руководителя передаёт свою (приватный отчёт).
   save?: (
     weekStartIso: string,
     projects: ProjectInput[],
-    subteam?: Subteam | null,
+    subteamId?: string | null,
   ) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [projects, setProjects] = useState<ProjectInput[]>(
     initialProjects.length ? initialProjects : [{ ...EMPTY }],
   );
-  const [subteam, setSubteam] = useState<Subteam | null>(initialSubteam);
+  const [subteamId, setSubteamId] = useState<string | null>(initialSubteamId);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
@@ -61,7 +62,11 @@ export default function ReportForm({
   function onSave() {
     setError("");
     startTransition(async () => {
-      const res = await save(weekStartIso, projects, subteam);
+      const res = await save(
+        weekStartIso,
+        projects,
+        showSubteam ? subteamId : undefined,
+      );
       if (res.ok) {
         setSaved(true);
         router.refresh();
@@ -90,25 +95,25 @@ export default function ReportForm({
             AI-сводки недели.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {SUBTEAMS.map((s) => {
-              const active = subteam === s;
+            {subteams.map((s) => {
+              const active = subteamId === s.id;
               return (
                 <button
-                  key={s}
+                  key={s.id}
                   type="button"
                   onClick={() => {
-                    setSubteam(s);
+                    setSubteamId(active ? null : s.id);
                     setSaved(false);
                   }}
                   aria-pressed={active}
-                  title={SUBTEAM_LABELS[s]}
+                  title={s.label}
                   className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
                     active
                       ? "bg-ink text-card"
                       : "border border-line bg-card text-muted hover:bg-panel hover:text-ink"
                   }`}
                 >
-                  {subteamTag(s)}
+                  {subteamTag(s.key)}
                 </button>
               );
             })}

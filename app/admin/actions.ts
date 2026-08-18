@@ -7,7 +7,6 @@ import { prisma } from "@/lib/db";
 import { TIMEZONES } from "@/lib/bot-constants";
 import { sendGroupRoster, sendReminders } from "@/lib/reminders";
 import { canManage, MANAGER_ROLES } from "@/lib/roles";
-import { parseSubteam } from "@/lib/subteam";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -108,14 +107,22 @@ export async function resetUserPassword(userId: string): Promise<ActionResult> {
 /** Задаёт подкоманду сотрудника (AI/BI) или снимает её (пусто). */
 export async function setUserSubteam(
   userId: string,
-  value: string,
+  subteamId: string,
 ): Promise<ActionResult> {
-  await requireManager();
-  const subteam = value ? parseSubteam(value) : null;
-  if (value && !subteam) {
-    return { ok: false, error: "Некорректная подкоманда" };
+  const me = await requireManager();
+  let valid: string | null = null;
+  if (subteamId) {
+    const st = await prisma.subteam.findFirst({
+      where: { id: subteamId, workspaceId: me.workspaceId ?? "" },
+      select: { id: true },
+    });
+    if (!st) return { ok: false, error: "Подкоманда не найдена" };
+    valid = st.id;
   }
-  await prisma.user.update({ where: { id: userId }, data: { subteam } });
+  await prisma.user.update({
+    where: { id: userId },
+    data: { subteamId: valid },
+  });
   revalidatePath("/admin");
   revalidatePath("/dashboard");
   return { ok: true };

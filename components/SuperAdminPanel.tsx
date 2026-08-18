@@ -6,14 +6,18 @@ import type { Role } from "@prisma/client";
 import { ROLE_LABELS } from "@/lib/roles";
 import {
   addAllowedEmailToWorkspace,
+  addSubteam,
   createWorkspace,
   removeAllowedEmail,
+  removeSubteam,
   renameWorkspace,
   saSetUserRole,
   setUserSuperAdmin,
   setUserWorkspace,
   setWorkspacePrompts,
 } from "@/app/superadmin/actions";
+
+type Subteam = { id: string; key: string; label: string; workspaceId: string };
 
 type Workspace = {
   id: string;
@@ -42,10 +46,12 @@ export default function SuperAdminPanel({
   workspaces,
   users,
   allowed,
+  subteams,
 }: {
   workspaces: Workspace[];
   users: UserRow[];
   allowed: Allowed[];
+  subteams: Subteam[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -135,6 +141,15 @@ export default function SuperAdminPanel({
           </table>
         </div>
       </section>
+
+      {/* Подкоманды по командам */}
+      <SubteamsSection
+        workspaces={workspaces}
+        subteams={subteams}
+        pending={pending}
+        onAdd={(wsId, key, label) => run(() => addSubteam(wsId, key, label))}
+        onRemove={(id) => run(() => removeSubteam(id))}
+      />
 
       {/* Промпты AI-сводок */}
       <PromptsSection
@@ -299,6 +314,99 @@ function Th({ children }: { children?: React.ReactNode }) {
     <th className="border-b border-line-strong p-3 text-left font-semibold text-ink">
       {children}
     </th>
+  );
+}
+
+function SubteamsSection({
+  workspaces,
+  subteams,
+  pending,
+  onAdd,
+  onRemove,
+}: {
+  workspaces: Workspace[];
+  subteams: Subteam[];
+  pending: boolean;
+  onAdd: (workspaceId: string, key: string, label: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [wsId, setWsId] = useState(workspaces[0]?.id ?? "");
+  const [key, setKey] = useState("");
+  const [label, setLabel] = useState("");
+  const list = subteams.filter((s) => s.workspaceId === wsId);
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-ink">Подкоманды по командам</h2>
+      <p className="mt-0.5 text-sm text-muted">
+        Направления внутри команды (тег для бейджа + название). По ним делится
+        AI-сводка и группируется дашборд. У каждой команды свой набор.
+      </p>
+      <select
+        value={wsId}
+        disabled={pending}
+        onChange={(e) => setWsId(e.target.value)}
+        className={`${selectClass} mt-3`}
+        aria-label="Команда"
+      >
+        {workspaces.map((w) => (
+          <option key={w.id} value={w.id}>
+            {w.name}
+          </option>
+        ))}
+      </select>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {list.map((s) => (
+          <span
+            key={s.id}
+            className="inline-flex items-center gap-1.5 rounded-full bg-cream px-2.5 py-1 text-xs text-cream-ink"
+          >
+            <span className="font-mono font-medium">#{s.key}</span>
+            <span className="text-cream-ink/70">{s.label}</span>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onRemove(s.id)}
+              className="text-danger transition hover:opacity-70 disabled:opacity-40"
+              aria-label="Удалить подкоманду"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        {list.length === 0 && (
+          <span className="text-sm text-faint">Пока нет подкоманд.</span>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder="Тег (напр. DS)"
+          className={`${selectClass} w-32`}
+        />
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="Название (напр. Data Science)"
+          className={`${selectClass} w-56`}
+        />
+        <button
+          type="button"
+          disabled={pending || !wsId || !key.trim()}
+          onClick={() => {
+            onAdd(wsId, key, label);
+            setKey("");
+            setLabel("");
+          }}
+          className="btn btn-primary"
+        >
+          Добавить
+        </button>
+      </div>
+    </section>
   );
 }
 

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import type { Subteam } from "@prisma/client";
 import Header from "@/components/Header";
 import SummaryCell from "@/components/SummaryCell";
 import { requireDbUser } from "@/lib/auth";
@@ -12,16 +11,12 @@ export const dynamic = "force-dynamic";
 
 const DEFAULT_WEEKS_LIMIT = 8;
 
-// Разделы дашборда по подкомандам (порядок фиксирован; последний — те, кто ещё
-// не выбрал подкоманду).
-const SUBTEAM_GROUPS: {
-  key: Subteam | null;
-  tag: string;
-  badgeClass: string;
-}[] = [
-  { key: "AI", tag: subteamTag("AI"), badgeClass: "bg-accent/15 text-accent" },
-  { key: "BI", tag: subteamTag("BI"), badgeClass: "bg-success/15 text-success" },
-  { key: null, tag: "Без подкоманды", badgeClass: "bg-panel text-muted" },
+// Палитра бейджей подкоманд (циклически по порядку подкоманд команды).
+const BADGE_CLASSES = [
+  "bg-accent/15 text-accent",
+  "bg-success/15 text-success",
+  "bg-cream text-cream-ink",
+  "bg-warn-bg text-warn",
 ];
 
 type UserLite = { id: string; name: string | null; email: string };
@@ -59,7 +54,7 @@ export default async function DashboardPage({
 
   const { start } = currentWeekRange();
 
-  const [users, weeks, totalWeeks, currentWeek] = await Promise.all([
+  const [users, weeks, totalWeeks, currentWeek, subteamList] = await Promise.all([
     // Колонки — только те, от кого ждём отчёт (Руководитель не пишет отчёты).
     prisma.user.findMany({
       where: {
@@ -90,7 +85,23 @@ export default async function DashboardPage({
         },
       },
     }),
+    prisma.subteam.findMany({
+      where: { workspaceId: me.workspaceId ?? "" },
+      orderBy: { order: "asc" },
+      select: { id: true, key: true },
+    }),
   ]);
+
+  // Разделы дашборда по подкомандам команды + «Без подкоманды» в конце.
+  const subteamGroups: { key: string | null; tag: string; badgeClass: string }[] =
+    [
+      ...subteamList.map((s, i) => ({
+        key: s.id,
+        tag: subteamTag(s.key),
+        badgeClass: BADGE_CLASSES[i % BADGE_CLASSES.length],
+      })),
+      { key: null, tag: "Без подкоманды", badgeClass: "bg-panel text-muted" },
+    ];
 
   // Кто ещё не сдал отчёт за текущую неделю.
   const submitted = new Set(
@@ -287,9 +298,9 @@ export default async function DashboardPage({
                       </p>
                     ) : (
                       <div className="space-y-4">
-                        {SUBTEAM_GROUPS.map((group) => {
+                        {subteamGroups.map((group) => {
                           const groupUsers = submittedUsers.filter(
-                            (u) => (u.subteam ?? null) === group.key,
+                            (u) => (u.subteamId ?? null) === group.key,
                           );
                           if (groupUsers.length === 0) return null;
                           return (

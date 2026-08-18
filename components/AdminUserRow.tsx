@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { Role, Subteam } from "@prisma/client";
+import type { Role } from "@prisma/client";
 import {
   deleteUser,
   resetUserPassword,
@@ -12,7 +12,7 @@ import {
   setUserVacation,
 } from "@/app/admin/actions";
 import { ROLE_LABELS } from "@/lib/roles";
-import { SUBTEAMS, subteamTag } from "@/lib/subteam";
+import { subteamTag, type SubteamLite } from "@/lib/subteam";
 
 const ROLE_OPTIONS: Role[] = ["MEMBER", "LEAD", "DIRECTOR"];
 
@@ -25,6 +25,7 @@ function toDateInput(v: Date | string | null): string {
 
 export default function AdminUserRow({
   user,
+  subteams,
   isSelf,
 }: {
   user: {
@@ -32,11 +33,12 @@ export default function AdminUserRow({
     name: string | null;
     email: string;
     role: Role;
-    subteam: Subteam | null;
+    subteamId: string | null;
     active: boolean;
     telegramChatId: string | null;
     vacationUntil: Date | string | null;
   };
+  subteams: SubteamLite[];
   isSelf: boolean;
 }) {
   const [telegram, setTelegram] = useState(user.telegramChatId ?? "");
@@ -139,16 +141,16 @@ export default function AdminUserRow({
       </td>
       <td className="p-3">
         <select
-          value={user.subteam ?? ""}
+          value={user.subteamId ?? ""}
           disabled={pending}
           onChange={(e) => run(() => setUserSubteam(user.id, e.target.value))}
           className={inputClass}
           aria-label="Подкоманда"
         >
           <option value="">—</option>
-          {SUBTEAMS.map((s) => (
-            <option key={s} value={s}>
-              {subteamTag(s)}
+          {subteams.map((s) => (
+            <option key={s.id} value={s.id}>
+              {subteamTag(s.key)}
             </option>
           ))}
         </select>

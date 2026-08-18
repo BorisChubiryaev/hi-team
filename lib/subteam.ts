@@ -1,24 +1,10 @@
-// Подкоманды (AI / BI) — глобальные «хэштеги» направлений. Команда делится на
-// две подгруппы; сотрудник выбирает свою при заполнении отчёта. Используется
-// в форме отчёта, на дашборде и при генерации AI-сводки.
+// Подкоманды (направления) — теперь на команду (таблица Subteam), а не enum.
+// Каждая команда задаёт свой набор в супер-админке. Здесь — только хелперы
+// отображения; сами подкоманды подгружаются из БД по workspaceId.
 
-import type { Subteam } from "@prisma/client";
+export type SubteamLite = { id: string; key: string; label: string };
 
-/** Порядок разделов в UI и в сводке. */
-export const SUBTEAMS: Subteam[] = ["AI", "BI"];
-
-/** Короткая подпись-хэштег для бейджей. */
-export function subteamTag(subteam: Subteam): string {
-  return `#${subteam}`;
-}
-
-/** Человеко-читаемое название раздела. */
-export const SUBTEAM_LABELS: Record<Subteam, string> = {
-  AI: "Подкоманда AI",
-  BI: "Подкоманда BI",
-};
-
-/** Валидирует произвольное значение как Subteam (для форм/actions). */
-export function parseSubteam(value: unknown): Subteam | null {
-  return value === "AI" || value === "BI" ? value : null;
+/** Короткая подпись-хэштег для бейджа, напр. «#AI». */
+export function subteamTag(key: string): string {
+  return `#${key}`;
 }
