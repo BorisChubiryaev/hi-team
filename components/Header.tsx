@@ -8,6 +8,7 @@ export default function Header({
   email,
   active,
   role = "MEMBER",
+  isSuperAdmin = false,
 }: {
   email?: string | null;
   active:
@@ -21,8 +22,10 @@ export default function Header({
     | "guide"
     | "director"
     | "notes"
+    | "superadmin"
     | "settings";
   role?: Role;
+  isSuperAdmin?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-canvas/80 backdrop-blur">
@@ -60,6 +63,13 @@ export default function Header({
             <Tab href="/admin" label="Команда" active={active === "admin"} />
           )}
           <Tab href="/guide" label="Гид" active={active === "guide"} />
+          {isSuperAdmin && (
+            <Tab
+              href="/superadmin"
+              label="Супер-админ"
+              active={active === "superadmin"}
+            />
+          )}
         </nav>
         <div className="ml-auto flex items-center gap-3">
           <ThemeToggle />

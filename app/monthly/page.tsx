@@ -45,6 +45,7 @@ export default async function MonthlyPage({
         email={me.email}
         active="monthly"
         role={me.role}
+        isSuperAdmin={me.isSuperAdmin}
       />
       <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">

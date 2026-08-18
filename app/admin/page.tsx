@@ -24,7 +24,7 @@ export default async function AdminPage() {
 
   return (
     <>
-      <Header email={me.email} active="admin" role={me.role} />
+      <Header email={me.email} active="admin" role={me.role} isSuperAdmin={me.isSuperAdmin} />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight text-ink">

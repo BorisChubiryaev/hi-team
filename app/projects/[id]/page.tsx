@@ -75,7 +75,7 @@ export default async function ProjectPage({
 
   return (
     <>
-      <Header email={me.email} active="projects" role={me.role} />
+      <Header email={me.email} active="projects" role={me.role} isSuperAdmin={me.isSuperAdmin} />
       <main className="viz-root mx-auto max-w-4xl px-4 py-6 sm:px-6">
         <div className="mb-5">
           <Link

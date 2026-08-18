@@ -237,7 +237,7 @@ export default async function GuidePage() {
 
   return (
     <>
-      <Header email={me.email} active="guide" role={me.role} />
+      <Header email={me.email} active="guide" role={me.role} isSuperAdmin={me.isSuperAdmin} />
       <main className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6">
         {/* Бриф */}
         <div className="max-w-2xl">

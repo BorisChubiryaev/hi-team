@@ -83,6 +83,7 @@ export default async function ReportPage({
         email={user.email}
         active="report"
         role={user.role}
+        isSuperAdmin={user.isSuperAdmin}
       />
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <div className="mb-6">

@@ -127,7 +127,7 @@ export default async function DashboardPage({
 
   return (
     <>
-      <Header email={me.email} active="dashboard" role={me.role} />
+      <Header email={me.email} active="dashboard" role={me.role} isSuperAdmin={me.isSuperAdmin} />
       <main className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div>

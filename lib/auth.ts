@@ -106,3 +106,10 @@ export async function requireDirector() {
   if (user.role !== "DIRECTOR") redirect("/dashboard");
   return user;
 }
+
+/** Только для супер-админа (управляет всеми командами); остальных — на дашборд. */
+export async function requireSuperAdmin() {
+  const user = await requireDbUser();
+  if (!user.isSuperAdmin) redirect("/dashboard");
+  return user;
+}

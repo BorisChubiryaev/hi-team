@@ -57,6 +57,7 @@ export default async function AnalyticsPage({
         email={me.email}
         active="analytics"
         role={me.role}
+        isSuperAdmin={me.isSuperAdmin}
       />
       <main className="viz-root mx-auto max-w-5xl px-4 py-6 sm:px-6">
         <div className="mb-5">
