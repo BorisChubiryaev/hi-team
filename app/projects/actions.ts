@@ -39,8 +39,19 @@ export async function renameProject(
   const name = normalizeProjectName(newName);
   if (!name) return { ok: false, error: "Имя не может быть пустым" };
 
+  // Конфликт имени проверяем в рамках команды проекта (у каждой свой каталог).
+  const target = await prisma.project.findUnique({
+    where: { id },
+    select: { workspaceId: true },
+  });
+  if (!target) return { ok: false, error: "Проект не найден" };
+
   const clash = await prisma.project.findFirst({
-    where: { name: { equals: name, mode: "insensitive" }, NOT: { id } },
+    where: {
+      workspaceId: target.workspaceId,
+      name: { equals: name, mode: "insensitive" },
+      NOT: { id },
+    },
     select: { name: true },
   });
   if (clash) {

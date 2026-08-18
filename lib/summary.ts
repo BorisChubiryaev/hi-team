@@ -73,11 +73,22 @@ export async function generateWeekSummary(
       previousBlockers,
     });
 
-    await prisma.summary.upsert({
-      where: { weekId },
-      update: { content, model, workspaceId },
-      create: { weekId, content, model, workspaceId },
+    // Одна сводка на (неделя, команда). workspaceId nullable — используем
+    // find + update/create вместо upsert по составному ключу.
+    const existing = await prisma.summary.findFirst({
+      where: { weekId, workspaceId },
+      select: { id: true },
     });
+    if (existing) {
+      await prisma.summary.update({
+        where: { id: existing.id },
+        data: { content, model },
+      });
+    } else {
+      await prisma.summary.create({
+        data: { weekId, content, model, workspaceId },
+      });
+    }
 
     return { ok: true, content, model };
   } catch (e) {

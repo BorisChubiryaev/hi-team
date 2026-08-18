@@ -73,7 +73,7 @@ export default async function DashboardPage({
       orderBy: { startDate: "desc" },
       take: limit,
       include: {
-        summary: true,
+        summaries: { where: { workspaceId: me.workspaceId } },
         reports: {
           where: { workspaceId: me.workspaceId },
           include: { projects: { orderBy: { order: "asc" } } },
@@ -237,7 +237,7 @@ export default async function DashboardPage({
                         <span className="text-[11px] font-semibold uppercase tracking-wide text-cream-ink">
                           AI-сводка недели
                         </span>
-                        {w.summary && (
+                        {w.summaries[0] && (
                           <span className="ml-2 text-[11px] font-normal text-cream-ink/70">
                             готова
                           </span>
@@ -246,8 +246,8 @@ export default async function DashboardPage({
                       <div className="mt-3">
                         <SummaryCell
                           weekId={w.id}
-                          initialContent={w.summary?.content ?? null}
-                          initialModel={w.summary?.model ?? null}
+                          initialContent={w.summaries[0]?.content ?? null}
+                          initialModel={w.summaries[0]?.model ?? null}
                           hasReports={w.reports.length > 0}
                         />
                       </div>
@@ -437,7 +437,7 @@ function TableView({
   weeks: {
     id: string;
     label: string;
-    summary: { content: string; model: string } | null;
+    summaries: { content: string; model: string }[];
     reports: { id: string }[];
   }[];
   byWeekUser: Map<string, Map<string, ProjectRow[]>>;
@@ -510,8 +510,8 @@ function TableView({
                 <td className="border-b border-line-strong bg-cream/25 p-3 align-top">
                   <SummaryCell
                     weekId={w.id}
-                    initialContent={w.summary?.content ?? null}
-                    initialModel={w.summary?.model ?? null}
+                    initialContent={w.summaries[0]?.content ?? null}
+                    initialModel={w.summaries[0]?.model ?? null}
                     hasReports={w.reports.length > 0}
                   />
                 </td>

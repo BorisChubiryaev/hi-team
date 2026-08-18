@@ -14,7 +14,7 @@ const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 type WeekWithReports = {
   label: string;
-  summary: { content: string } | null;
+  summaries: { content: string }[];
   reports: {
     user: { name: string | null; email: string };
     projects: { name: string; done: string; blockers: string; plans: string }[];
@@ -28,8 +28,8 @@ type WeekWithReports = {
 function weekMarkdown(week: WeekWithReports, heading: string): string[] {
   const lines: string[] = [`${heading} Отчёты за неделю ${week.label}`, ""];
 
-  if (week.summary) {
-    lines.push(`${heading}# Сводка недели (AI)`, "", week.summary.content, "");
+  if (week.summaries[0]) {
+    lines.push(`${heading}# Сводка недели (AI)`, "", week.summaries[0].content, "");
   }
 
   for (const r of week.reports) {
@@ -120,9 +120,9 @@ function weekParagraphs(week: WeekWithReports): Paragraph[] {
       text: `Отчёты за неделю ${week.label}`,
     }),
   ];
-  if (week.summary) {
+  if (week.summaries[0]) {
     out.push(new Paragraph({ heading: HeadingLevel.HEADING_2, text: "Сводка недели (AI)" }));
-    out.push(...mdToParagraphs(week.summary.content));
+    out.push(...mdToParagraphs(week.summaries[0].content));
   }
   for (const r of week.reports) {
     out.push(
@@ -160,7 +160,7 @@ async function docxResponse(children: Paragraph[], filename: string) {
 
 // Отчёты недели — только из указанной команды (мультитенант).
 const weekInclude = (workspaceId: string | null) => ({
-  summary: true,
+  summaries: { where: { workspaceId } },
   reports: {
     where: { workspaceId },
     include: {
@@ -212,7 +212,7 @@ export async function GET(req: Request) {
         orderBy: { startDate: "asc" },
         include: weekInclude(workspaceId),
       }),
-      prisma.monthSummary.findUnique({ where: { month } }),
+      prisma.monthSummary.findFirst({ where: { month, workspaceId } }),
     ]);
     if (weeks.length === 0) {
       return NextResponse.json(

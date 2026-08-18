@@ -162,7 +162,7 @@ enum ProjectStatus {
 model Project {
   id             String        @id @default(cuid())
   workspaceId    String?
-  name           String        @unique
+  name           String
   status         ProjectStatus @default(ACTIVE)
   aiSummary      String?       @db.Text // последняя AI-сводка по проекту
   aiSummaryModel String?
@@ -172,6 +172,8 @@ model Project {
 
   workspace Workspace?      @relation(fields: [workspaceId], references: [id])
   entries   ReportProject[]
+
+  @@unique([workspaceId, name]) // имена проектов уникальны в рамках команды
 }
 
 model Week {
@@ -181,7 +183,7 @@ model Week {
   endDate   DateTime @db.Date
 
   reports         Report[]
-  summary         Summary?
+  summaries       Summary[] // по одной сводке на команду
   directorReports DirectorReport[]
 
   @@index([startDate])
@@ -267,7 +269,7 @@ model Note {
 // Сгенерированная ИИ сводка месяца (для отчётности наверх)
 model MonthSummary {
   id          String   @id @default(cuid())
-  month       String   @unique // YYYY-MM
+  month       String // YYYY-MM
   workspaceId String?
   content     String   @db.Text
   model       String
@@ -275,12 +277,14 @@ model MonthSummary {
   updatedAt   DateTime @updatedAt
 
   workspace Workspace? @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, month])
 }
 
 // Сгенерированная ИИ сводка недели для руководителя
 model Summary {
   id          String   @id @default(cuid())
-  weekId      String   @unique
+  weekId      String
   workspaceId String?
   content     String   @db.Text
   model       String
@@ -288,4 +292,6 @@ model Summary {
 
   week      Week       @relation(fields: [weekId], references: [id], onDelete: Cascade)
   workspace Workspace? @relation(fields: [workspaceId], references: [id])
+
+  @@unique([weekId, workspaceId])
 }

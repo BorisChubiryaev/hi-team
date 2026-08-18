@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     where: { startDate: { gte: from, lt: to } },
     orderBy: { startDate: "asc" },
     include: {
-      summary: true,
+      summaries: { where: { workspaceId } },
       reports: {
         where: { workspaceId },
         include: {
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       monthLabel: formatMonthLabel(month),
       weeks: withReports.map((w) => ({
         weekLabel: w.label,
-        summary: w.summary?.content ?? null,
+        summary: w.summaries[0]?.content ?? null,
         reports: w.reports.map((r) => ({
           name: r.user.name ?? r.user.email,
           projects: r.projects,
@@ -72,11 +72,20 @@ export async function POST(req: Request) {
       })),
     });
 
-    await prisma.monthSummary.upsert({
-      where: { month },
-      update: { content, model, workspaceId },
-      create: { month, content, model, workspaceId },
+    const existing = await prisma.monthSummary.findFirst({
+      where: { month, workspaceId },
+      select: { id: true },
     });
+    if (existing) {
+      await prisma.monthSummary.update({
+        where: { id: existing.id },
+        data: { content, model },
+      });
+    } else {
+      await prisma.monthSummary.create({
+        data: { month, content, model, workspaceId },
+      });
+    }
 
     return NextResponse.json({ content, model });
   } catch (e) {

@@ -34,7 +34,9 @@ export default async function MonthlyPage({
   const selected = months.includes(requested ?? "") ? requested! : months[0];
 
   const summary = selected
-    ? await prisma.monthSummary.findUnique({ where: { month: selected } })
+    ? await prisma.monthSummary.findFirst({
+        where: { month: selected, workspaceId: me.workspaceId },
+      })
     : null;
 
   return (
