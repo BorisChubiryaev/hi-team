@@ -59,18 +59,28 @@ export async function POST(req: Request) {
     );
   }
 
+  const ws = workspaceId
+    ? await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { monthPrompt: true },
+      })
+    : null;
+
   try {
-    const { content, model } = await summarizeMonth({
-      monthLabel: formatMonthLabel(month),
-      weeks: withReports.map((w) => ({
-        weekLabel: w.label,
-        summary: w.summaries[0]?.content ?? null,
-        reports: w.reports.map((r) => ({
-          name: r.user.name ?? r.user.email,
-          projects: r.projects,
+    const { content, model } = await summarizeMonth(
+      {
+        monthLabel: formatMonthLabel(month),
+        weeks: withReports.map((w) => ({
+          weekLabel: w.label,
+          summary: w.summaries[0]?.content ?? null,
+          reports: w.reports.map((r) => ({
+            name: r.user.name ?? r.user.email,
+            projects: r.projects,
+          })),
         })),
-      })),
-    });
+      },
+      ws?.monthPrompt,
+    );
 
     const existing = await prisma.monthSummary.findFirst({
       where: { month, workspaceId },

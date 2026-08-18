@@ -12,6 +12,7 @@ import {
   saSetUserRole,
   setUserSuperAdmin,
   setUserWorkspace,
+  setWorkspacePrompts,
 } from "@/app/superadmin/actions";
 
 type Workspace = {
@@ -20,6 +21,8 @@ type Workspace = {
   slug: string;
   members: number;
   allowed: number;
+  weekPrompt: string | null;
+  monthPrompt: string | null;
 };
 type UserRow = {
   id: string;
@@ -132,6 +135,13 @@ export default function SuperAdminPanel({
           </table>
         </div>
       </section>
+
+      {/* Промпты AI-сводок */}
+      <PromptsSection
+        workspaces={workspaces}
+        pending={pending}
+        onSave={(id, w, m) => run(() => setWorkspacePrompts(id, w, m))}
+      />
 
       {/* Люди */}
       <section>
@@ -289,5 +299,104 @@ function Th({ children }: { children?: React.ReactNode }) {
     <th className="border-b border-line-strong p-3 text-left font-semibold text-ink">
       {children}
     </th>
+  );
+}
+
+function PromptsSection({
+  workspaces,
+  pending,
+  onSave,
+}: {
+  workspaces: Workspace[];
+  pending: boolean;
+  onSave: (id: string, weekPrompt: string, monthPrompt: string) => void;
+}) {
+  const [wsId, setWsId] = useState(workspaces[0]?.id ?? "");
+  const current = workspaces.find((w) => w.id === wsId);
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-ink">Промпты AI-сводок</h2>
+      <p className="mt-0.5 text-sm text-muted">
+        Системные промпты недельной и месячной сводки для команды. Пусто =
+        дефолтный промпт из кода.
+      </p>
+      <select
+        value={wsId}
+        disabled={pending}
+        onChange={(e) => setWsId(e.target.value)}
+        className={`${selectClass} mt-3`}
+        aria-label="Команда"
+      >
+        {workspaces.map((w) => (
+          <option key={w.id} value={w.id}>
+            {w.name}
+          </option>
+        ))}
+      </select>
+
+      {current && (
+        <PromptForm
+          key={current.id}
+          weekPrompt={current.weekPrompt ?? ""}
+          monthPrompt={current.monthPrompt ?? ""}
+          pending={pending}
+          onSave={(w, m) => onSave(current.id, w, m)}
+        />
+      )}
+    </section>
+  );
+}
+
+function PromptForm({
+  weekPrompt: initWeek,
+  monthPrompt: initMonth,
+  pending,
+  onSave,
+}: {
+  weekPrompt: string;
+  monthPrompt: string;
+  pending: boolean;
+  onSave: (weekPrompt: string, monthPrompt: string) => void;
+}) {
+  const [week, setWeek] = useState(initWeek);
+  const [month, setMonth] = useState(initMonth);
+  const changed = week !== initWeek || month !== initMonth;
+  const taClass =
+    "mt-1 min-h-32 w-full resize-y rounded-lg border border-line bg-card px-3 py-2 text-sm text-ink outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20";
+
+  return (
+    <div className="mt-4 space-y-4">
+      <label className="block">
+        <span className="text-xs font-medium uppercase tracking-wide text-faint">
+          Промпт недельной сводки
+        </span>
+        <textarea
+          value={week}
+          onChange={(e) => setWeek(e.target.value)}
+          placeholder="Пусто — используется дефолтный промпт"
+          className={taClass}
+        />
+      </label>
+      <label className="block">
+        <span className="text-xs font-medium uppercase tracking-wide text-faint">
+          Промпт месячных итогов
+        </span>
+        <textarea
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+          placeholder="Пусто — используется дефолтный промпт"
+          className={taClass}
+        />
+      </label>
+      <button
+        type="button"
+        disabled={pending || !changed}
+        onClick={() => onSave(week, month)}
+        className="btn btn-primary"
+      >
+        Сохранить промпты
+      </button>
+    </div>
   );
 }

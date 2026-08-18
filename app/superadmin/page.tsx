@@ -53,6 +53,8 @@ export default async function SuperAdminPage() {
             slug: w.slug,
             members: w._count.users,
             allowed: w._count.allowedEmails,
+            weekPrompt: w.weekPrompt,
+            monthPrompt: w.monthPrompt,
           }))}
           users={users}
           allowed={allowed}

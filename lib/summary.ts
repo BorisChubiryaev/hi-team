@@ -62,16 +62,27 @@ export async function generateWeekSummary(
     ),
   );
 
+  // Системный промпт команды (если задан) вместо дефолтного.
+  const ws = workspaceId
+    ? await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { weekPrompt: true },
+      })
+    : null;
+
   try {
-    const { content, model } = await summarizeWeek({
-      weekLabel: week.label,
-      reports: week.reports.map((r) => ({
-        name: r.user.name ?? r.user.email,
-        subteam: r.user.subteam,
-        projects: r.projects,
-      })),
-      previousBlockers,
-    });
+    const { content, model } = await summarizeWeek(
+      {
+        weekLabel: week.label,
+        reports: week.reports.map((r) => ({
+          name: r.user.name ?? r.user.email,
+          subteam: r.user.subteam,
+          projects: r.projects,
+        })),
+        previousBlockers,
+      },
+      ws?.weekPrompt,
+    );
 
     // Одна сводка на (неделя, команда). workspaceId nullable — используем
     // find + update/create вместо upsert по составному ключу.

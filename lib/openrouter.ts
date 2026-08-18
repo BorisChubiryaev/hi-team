@@ -130,9 +130,10 @@ async function callOpenRouter(
 
 export async function summarizeWeek(
   input: WeekReportInput,
+  systemPrompt?: string | null,
 ): Promise<{ content: string; model: string }> {
   return callOpenRouter([
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt?.trim() || SYSTEM_PROMPT },
     { role: "user", content: buildUserPrompt(input) },
   ]);
 }
@@ -244,9 +245,10 @@ function buildMonthPrompt(input: MonthInput): string {
 
 export async function summarizeMonth(
   input: MonthInput,
+  systemPrompt?: string | null,
 ): Promise<{ content: string; model: string }> {
   return callOpenRouter([
-    { role: "system", content: MONTH_SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt?.trim() || MONTH_SYSTEM_PROMPT },
     { role: "user", content: buildMonthPrompt(input) },
   ]);
 }

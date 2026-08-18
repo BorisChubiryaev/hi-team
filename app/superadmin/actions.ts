@@ -49,6 +49,24 @@ export async function renameWorkspace(
   return { ok: true };
 }
 
+/** Задаёт системные промпты AI-сводок команды (пусто = дефолт из кода). */
+export async function setWorkspacePrompts(
+  id: string,
+  weekPrompt: string,
+  monthPrompt: string,
+): Promise<ActionResult> {
+  await requireSuperAdmin();
+  await prisma.workspace.update({
+    where: { id },
+    data: {
+      weekPrompt: weekPrompt.trim() || null,
+      monthPrompt: monthPrompt.trim() || null,
+    },
+  });
+  revalidatePath("/superadmin");
+  return { ok: true };
+}
+
 /** Переносит пользователя в другую команду (пусто = без команды). */
 export async function setUserWorkspace(
   userId: string,
