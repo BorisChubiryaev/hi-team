@@ -172,7 +172,7 @@ export async function updateBotSettings(input: {
   groupHour: number;
   timezone: string;
 }): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
 
   const clampDow = (n: number) => Math.min(7, Math.max(1, Math.floor(n)));
   const clampHour = (n: number) => Math.min(23, Math.max(0, Math.floor(n)));
@@ -190,10 +190,11 @@ export async function updateBotSettings(input: {
     timezone,
   };
 
-  // Если поменяли день/час рассылки — сбрасываем отметку «отправлено сегодня»
-  // (дедуп), чтобы новое расписание могло сработать в этот же день.
-  const existing = await prisma.botSettings.findUnique({
-    where: { id: "singleton" },
+  // Настройки бота — на команду менеджера. Если поменяли день/час рассылки —
+  // сбрасываем отметку «отправлено сегодня» (дедуп), чтобы новое расписание
+  // могло сработать в этот же день.
+  const existing = await prisma.botSettings.findFirst({
+    where: { workspaceId: me.workspaceId },
   });
   const reminderChanged =
     !existing ||
@@ -204,15 +205,20 @@ export async function updateBotSettings(input: {
     existing.groupDow !== data.groupDow ||
     existing.groupHour !== data.groupHour;
 
-  await prisma.botSettings.upsert({
-    where: { id: "singleton" },
-    update: {
-      ...data,
-      ...(reminderChanged ? { lastReminderKey: null } : {}),
-      ...(groupChanged ? { lastGroupKey: null } : {}),
-    },
-    create: { id: "singleton", ...data },
-  });
+  if (existing) {
+    await prisma.botSettings.update({
+      where: { id: existing.id },
+      data: {
+        ...data,
+        ...(reminderChanged ? { lastReminderKey: null } : {}),
+        ...(groupChanged ? { lastGroupKey: null } : {}),
+      },
+    });
+  } else {
+    await prisma.botSettings.create({
+      data: { ...data, workspaceId: me.workspaceId },
+    });
+  }
   revalidatePath("/admin");
   return { ok: true };
 }

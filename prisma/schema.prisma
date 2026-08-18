@@ -108,8 +108,8 @@ model TelegramLink {
 // напоминаний не сдавшим и групповой сводки «кто сдал / кто нет».
 // Время задаётся в timezone; почасовой крон проверяет совпадение.
 model BotSettings {
-  id              String   @id @default("singleton")
-  workspaceId     String? // одна настройка бота на команду; @unique добавим в Фазе 4
+  id              String   @id @default(cuid())
+  workspaceId     String?  @unique // одна настройка бота на команду
   // Личные напоминания в ЛС тем, кто не сдал отчёт.
   reminderEnabled Boolean  @default(false)
   reminderDow     Int      @default(4) // день недели 1=Пн … 7=Вс

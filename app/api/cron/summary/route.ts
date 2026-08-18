@@ -5,7 +5,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron";
 import { prisma } from "@/lib/db";
-import { notifyTeam } from "@/lib/notify";
+import { notifyTeam, sendTelegram } from "@/lib/notify";
 import { generateWeekSummary } from "@/lib/summary";
 import { currentWeekRange, formatWeekLabel } from "@/lib/weeks";
 
@@ -37,10 +37,19 @@ export async function GET(req: Request) {
   }
 
   const appUrl = process.env.APP_URL || "http://localhost:3000";
-  // Уведомления пока общие (env-канал); per-workspace — Фаза 4.
-  const notified = await notifyTeam(
-    `📋 AI-сводка за неделю ${label} готова: ${appUrl}/dashboard`,
-  );
+  const text = `📋 AI-сводка за неделю ${label} готова: ${appUrl}/dashboard`;
+
+  // Уведомление в групповой чат каждой команды (если подключён через /here).
+  const groups = await prisma.botSettings.findMany({
+    where: { groupChatId: { not: null } },
+    select: { groupChatId: true },
+  });
+  for (const g of groups) {
+    if (g.groupChatId) await sendTelegram(g.groupChatId, text);
+  }
+
+  // Плюс общий env-канал (Telegram/webhook) — для обратной совместимости.
+  const notified = await notifyTeam(text);
 
   return NextResponse.json({ week: label, workspaces: results, notified });
 }

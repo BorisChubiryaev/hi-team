@@ -202,20 +202,23 @@ async function handleHere(msg: IncomingMessage) {
     return;
   }
 
-  await prisma.botSettings.upsert({
-    where: { id: "singleton" },
-    update: {
-      groupChatId: String(chatId),
-      groupTitle: msg.chat.title ?? null,
-      groupEnabled: true,
-    },
-    create: {
-      id: "singleton",
-      groupChatId: String(chatId),
-      groupTitle: msg.chat.title ?? null,
-      groupEnabled: true,
-    },
+  // Подключаем чат к настройкам бота команды лида.
+  const existing = await prisma.botSettings.findFirst({
+    where: { workspaceId: lead.workspaceId },
+    select: { id: true },
   });
+  const groupData = {
+    groupChatId: String(chatId),
+    groupTitle: msg.chat.title ?? null,
+    groupEnabled: true,
+  };
+  if (existing) {
+    await prisma.botSettings.update({ where: { id: existing.id }, data: groupData });
+  } else {
+    await prisma.botSettings.create({
+      data: { workspaceId: lead.workspaceId, ...groupData },
+    });
+  }
 
   await sendMessage(
     chatId,

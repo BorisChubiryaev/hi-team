@@ -19,7 +19,7 @@ export default async function AdminPage() {
       where: { workspaceId: me.workspaceId },
       orderBy: { email: "asc" },
     }),
-    prisma.botSettings.findUnique({ where: { id: "singleton" } }),
+    prisma.botSettings.findFirst({ where: { workspaceId: me.workspaceId } }),
   ]);
 
   return (
