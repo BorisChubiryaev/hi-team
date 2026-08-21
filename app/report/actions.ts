@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
+import { improveProjects } from "@/lib/openrouter";
 import { saveUserReport, type ProjectInput } from "@/lib/reports";
 import { currentWeekRange, isoDate } from "@/lib/weeks";
 
@@ -41,5 +42,42 @@ export async function saveReport(
     console.error("saveReport failed:", e);
     const msg = e instanceof Error ? e.message : "Неизвестная ошибка";
     return { ok: false, error: `Не удалось сохранить: ${msg}` };
+  }
+}
+
+type ImproveResult =
+  | { ok: true; projects: ProjectInput[] }
+  | { ok: false; error: string };
+
+/**
+ * Улучшает формулировки отчёта через ИИ (без выдумок и воды). Принимает
+ * один проект (точечно) или все. Возвращает обновлённые поля — форма
+ * подставляет их к себе, ничего не сохраняя.
+ */
+export async function improveReport(
+  projects: ProjectInput[],
+): Promise<ImproveResult> {
+  try {
+    await requireUser();
+    const hasText = projects.some(
+      (p) => p.done.trim() || p.blockers.trim() || p.plans.trim(),
+    );
+    if (!hasText) {
+      return { ok: false, error: "Нечего улучшать — заполните хотя бы одно поле" };
+    }
+    const improved = await improveProjects(
+      projects.map((p) => ({
+        name: p.name,
+        done: p.done,
+        blockers: p.blockers,
+        plans: p.plans,
+      })),
+    );
+    return { ok: true, projects: improved };
+  } catch (e) {
+    if (isNextControlFlow(e)) throw e;
+    console.error("improveReport failed:", e);
+    const msg = e instanceof Error ? e.message : "Ошибка";
+    return { ok: false, error: `Не удалось улучшить: ${msg}` };
   }
 }

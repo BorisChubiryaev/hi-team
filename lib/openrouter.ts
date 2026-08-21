@@ -407,3 +407,58 @@ export async function writeReviewPrep(
     { role: "user", content: buildReviewPrompt(input) },
   ]);
 }
+
+// ---------------------------------------------------------------------------
+// Улучшение формулировок отчёта (кнопка «Улучшить с ИИ»)
+// ---------------------------------------------------------------------------
+
+const IMPROVE_SYSTEM_PROMPT = `Ты — редактор рабочих еженедельных отчётов. Тебе дают поля отчёта сотрудника по проектам: «Сделано» (done), «Блокеры» (blockers), «Планы» (plans). Сделай текст чище и читаемее, НИЧЕГО не добавляя от себя.
+
+Строгие правила:
+- Сохраняй все факты, цифры и смысл. НЕ выдумывай проекты, результаты, метрики или детали, которых нет во входе. Не приукрашивай.
+- Убирай воду, канцелярит, повторы; делай формулировки краткими, конкретными, по делу.
+- «Сделано» — прошедшее время, как завершённая работа. Если текст написан как план (будущее время: «сделаю», «планирую», «нужно») — переформулируй в прошедшее («сделал», «подключил»), НЕ добавляя новых деталей.
+- «Планы» — будущее время.
+- Пустое поле оставляй пустым (пустая строка).
+- Названия проектов не меняй.
+
+Верни СТРОГО JSON — массив объектов {"name","done","blockers","plans"} в ТОМ ЖЕ порядке и количестве, что на входе. Никакого текста вне JSON, без markdown-ограждений.`;
+
+export type ImproveProject = {
+  name: string;
+  done: string;
+  blockers: string;
+  plans: string;
+};
+
+/** Улучшает формулировки полей отчёта, не добавляя новых фактов. */
+export async function improveProjects(
+  projects: ImproveProject[],
+): Promise<ImproveProject[]> {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const input = projects.map((p) => ({
+    name: p.name,
+    done: p.done,
+    blockers: p.blockers,
+    plans: p.plans,
+  }));
+
+  const { content } = await callOpenRouter([
+    { role: "system", content: IMPROVE_SYSTEM_PROMPT },
+    { role: "user", content: JSON.stringify(input) },
+  ]);
+
+  const parsed = extractJsonArray(content);
+  if (!Array.isArray(parsed) || parsed.length !== projects.length) {
+    throw new Error("Модель вернула неожиданный ответ");
+  }
+  return parsed.map((p, i) => {
+    const o = (p ?? {}) as Record<string, unknown>;
+    return {
+      name: projects[i].name, // имя проекта не трогаем
+      done: str(o.done),
+      blockers: str(o.blockers),
+      plans: str(o.plans),
+    };
+  });
+}
