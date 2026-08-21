@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveReport } from "@/app/report/actions";
+import { improveReport, saveReport } from "@/app/report/actions";
 import type { ProjectInput } from "@/lib/reports";
 import { subteamTag, type SubteamLite } from "@/lib/subteam";
 
@@ -41,8 +41,43 @@ export default function ReportForm({
   const [subteamId, setSubteamId] = useState<string | null>(initialSubteamId);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [improving, setImproving] = useState<number | "all" | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const busy = pending || improving !== null;
+
+  async function improveAll() {
+    setError("");
+    setImproving("all");
+    try {
+      const res = await improveReport(projects);
+      if (res.ok) {
+        setProjects(res.projects);
+        setSaved(false);
+      } else {
+        setError(res.error);
+      }
+    } finally {
+      setImproving(null);
+    }
+  }
+
+  async function improveOne(i: number) {
+    setError("");
+    setImproving(i);
+    try {
+      const res = await improveReport([projects[i]]);
+      if (res.ok && res.projects[0]) {
+        const improved = res.projects[0];
+        setProjects((prev) => prev.map((p, idx) => (idx === i ? improved : p)));
+        setSaved(false);
+      } else if (!res.ok) {
+        setError(res.error);
+      }
+    } finally {
+      setImproving(null);
+    }
+  }
 
   function update(i: number, field: keyof ProjectInput, value: string) {
     setProjects((prev) =>
@@ -80,9 +115,9 @@ export default function ReportForm({
     <div className="space-y-6">
       {draftFromLabel && !saved && (
         <p className="rounded-lg border border-warn/25 bg-warn-bg px-4 py-3 text-sm text-warn">
-          Черновик предзаполнен по планам за неделю {draftFromLabel}: планы
-          перенесены в «Сделано» как заготовка, блокеры — как есть.
-          Отредактируйте и нажмите «Сохранить отчёт».
+          Черновик заполнен вашими планами с недели {draftFromLabel} (перенесены
+          в «Сделано»). Отметьте, что реально сделано, — или нажмите «Улучшить с
+          ИИ»: перепишет как выполненное, в прошедшем времени.
         </p>
       )}
       {showSubteam && (
@@ -137,16 +172,28 @@ export default function ReportForm({
               placeholder="Название проекта / направления"
               className="input font-medium"
             />
-            {projects.length > 1 && (
+            <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
-                onClick={() => removeProject(i)}
-                className="shrink-0 rounded-full px-2 py-1 text-sm text-danger transition hover:bg-danger-bg"
-                aria-label="Удалить проект"
+                onClick={() => improveOne(i)}
+                disabled={busy}
+                title="Улучшить формулировки этого проекта с помощью ИИ"
+                className="rounded-full px-2.5 py-1 text-sm text-accent transition hover:bg-panel disabled:opacity-50"
               >
-                Удалить
+                {improving === i ? "Улучшаю…" : "✨ Улучшить"}
               </button>
-            )}
+              {projects.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeProject(i)}
+                  disabled={busy}
+                  className="rounded-full px-2 py-1 text-sm text-danger transition hover:bg-danger-bg disabled:opacity-50"
+                  aria-label="Удалить проект"
+                >
+                  Удалить
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="mt-4 space-y-4">
@@ -170,13 +217,27 @@ export default function ReportForm({
       ))}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={addProject} className="btn btn-ghost">
+        <button
+          type="button"
+          onClick={addProject}
+          disabled={busy}
+          className="btn btn-ghost"
+        >
           + Добавить проект
         </button>
         <button
           type="button"
+          onClick={improveAll}
+          disabled={busy}
+          title="Переписать все поля чище и читаемее, без выдумок"
+          className="btn btn-ghost"
+        >
+          {improving === "all" ? "Улучшаю…" : "✨ Улучшить весь отчёт"}
+        </button>
+        <button
+          type="button"
           onClick={onSave}
-          disabled={pending}
+          disabled={busy}
           className="btn btn-primary"
         >
           {pending ? "Сохранение…" : "Сохранить отчёт"}
