@@ -70,7 +70,7 @@ export default function LoginForm() {
 
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-ink">
-          Рабочая почта
+          Личная почта
         </label>
         <input
           id="email"
