@@ -451,14 +451,10 @@ export async function improveProjects(
     plans: p.plans,
   }));
 
-  const { content } = await callOpenRouter(
-    [
-      { role: "system", content: IMPROVE_SYSTEM_PROMPT },
-      { role: "user", content: JSON.stringify(input) },
-    ],
-    // Улучшение сохраняет объём — даём запас, чтобы длинный отчёт не обрезался.
-    { maxTokens: 4000 },
-  );
+  const { content } = await callOpenRouter([
+    { role: "system", content: IMPROVE_SYSTEM_PROMPT },
+    { role: "user", content: JSON.stringify(input) },
+  ]);
 
   const parsed = extractJsonArray(content);
   if (!Array.isArray(parsed) || parsed.length !== projects.length) {
