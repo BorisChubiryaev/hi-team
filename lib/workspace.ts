@@ -1,5 +1,6 @@
 // Мультитенант: помощники для определения команды (Workspace).
 
+import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export const DEFAULT_WORKSPACE_SLUG = "main";
@@ -26,4 +27,16 @@ export async function workspaceIdForEmail(
   });
   if (allowed?.workspaceId) return allowed.workspaceId;
   return defaultWorkspaceId();
+}
+
+/**
+ * Роль, которую получит новый пользователь при первом входе — из его записи
+ * allowlist. Если записи нет (env-allowlist / открытый доступ) — MEMBER.
+ */
+export async function roleForEmail(email: string): Promise<Role> {
+  const allowed = await prisma.allowedEmail.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { role: true },
+  });
+  return allowed?.role ?? "MEMBER";
 }

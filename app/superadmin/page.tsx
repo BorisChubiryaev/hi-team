@@ -28,7 +28,7 @@ export default async function SuperAdminPage() {
     }),
     prisma.allowedEmail.findMany({
       orderBy: { email: "asc" },
-      select: { id: true, email: true, workspaceId: true },
+      select: { id: true, email: true, workspaceId: true, role: true },
     }),
   ]);
 
