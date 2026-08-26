@@ -242,7 +242,8 @@ export default function SuperAdminPanel({
         <h2 className="text-lg font-semibold text-ink">Доступ по командам</h2>
         <p className="mt-0.5 text-sm text-muted">
           Почта → команда и роль: новый человек при первом входе попадёт в
-          выбранную команду с этой ролью.
+          выбранную команду с этой ролью. Если человек уже зарегистрирован,
+          смена роли здесь применится к нему сразу.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -304,7 +305,7 @@ export default function SuperAdminPanel({
                 <tr className="bg-panel">
                   <Th>Почта</Th>
                   <Th>Команда</Th>
-                  <Th>Роль при входе</Th>
+                  <Th>Роль</Th>
                   <Th></Th>
                 </tr>
               </thead>
@@ -323,7 +324,7 @@ export default function SuperAdminPanel({
                           )
                         }
                         className={selectClass}
-                        aria-label="Роль при первом входе"
+                        aria-label="Роль"
                       >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>

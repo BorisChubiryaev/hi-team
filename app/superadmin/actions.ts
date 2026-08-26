@@ -134,18 +134,33 @@ export async function addAllowedEmailToWorkspace(
     update: { workspaceId, role },
     create: { email: e, workspaceId, role },
   });
+  // Если человек уже зарегистрирован — сразу применяем роль к аккаунту,
+  // чтобы не приходилось ждать «первого входа» (его не будет).
+  await prisma.user.updateMany({ where: { email: e }, data: { role } });
   revalidatePath("/superadmin");
   return { ok: true };
 }
 
-/** Меняет роль, которую получит человек по записи allowlist при первом входе. */
+/**
+ * Меняет роль по записи allowlist. Если человек уже зарегистрирован —
+ * применяем роль и к его аккаунту сразу (иначе смена ничего не даст:
+ * «первого входа» у существующего пользователя уже не будет).
+ */
 export async function setAllowedEmailRole(
   id: string,
   role: Role,
 ): Promise<ActionResult> {
   await requireSuperAdmin();
   if (!ROLES.includes(role)) return { ok: false, error: "Некорректная роль" };
-  await prisma.allowedEmail.update({ where: { id }, data: { role } });
+  const allowed = await prisma.allowedEmail.update({
+    where: { id },
+    data: { role },
+    select: { email: true },
+  });
+  await prisma.user.updateMany({
+    where: { email: allowed.email },
+    data: { role },
+  });
   revalidatePath("/superadmin");
   return { ok: true };
 }
