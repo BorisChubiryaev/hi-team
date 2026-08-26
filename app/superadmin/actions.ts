@@ -115,20 +115,37 @@ export async function setUserSuperAdmin(
   return { ok: true };
 }
 
-/** Добавляет почту в allowlist конкретной команды (новый человек попадёт в неё). */
+/**
+ * Добавляет почту в allowlist конкретной команды с ролью, которую человек
+ * получит при первом входе (новый — MEMBER/LEAD/DIRECTOR по выбору).
+ */
 export async function addAllowedEmailToWorkspace(
   workspaceId: string,
   email: string,
+  role: Role = "MEMBER",
 ): Promise<ActionResult> {
   await requireSuperAdmin();
   const e = email.trim().toLowerCase();
   if (!EMAIL_RE.test(e)) return { ok: false, error: "Некорректная почта" };
   if (!workspaceId) return { ok: false, error: "Выберите команду" };
+  if (!ROLES.includes(role)) return { ok: false, error: "Некорректная роль" };
   await prisma.allowedEmail.upsert({
     where: { email: e },
-    update: { workspaceId },
-    create: { email: e, workspaceId },
+    update: { workspaceId, role },
+    create: { email: e, workspaceId, role },
   });
+  revalidatePath("/superadmin");
+  return { ok: true };
+}
+
+/** Меняет роль, которую получит человек по записи allowlist при первом входе. */
+export async function setAllowedEmailRole(
+  id: string,
+  role: Role,
+): Promise<ActionResult> {
+  await requireSuperAdmin();
+  if (!ROLES.includes(role)) return { ok: false, error: "Некорректная роль" };
+  await prisma.allowedEmail.update({ where: { id }, data: { role } });
   revalidatePath("/superadmin");
   return { ok: true };
 }

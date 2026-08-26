@@ -3,7 +3,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { isAllowed } from "@/lib/auth";
-import { workspaceIdForEmail } from "@/lib/workspace";
+import { roleForEmail, workspaceIdForEmail } from "@/lib/workspace";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -44,10 +44,13 @@ export async function setPassword(
       data: { passwordHash, ...(cleanName ? { name: cleanName } : {}) },
     });
   } else {
-    // Новый пользователь попадает в команду своей записи allowlist.
-    const workspaceId = await workspaceIdForEmail(e);
+    // Новый пользователь попадает в команду и роль своей записи allowlist.
+    const [workspaceId, role] = await Promise.all([
+      workspaceIdForEmail(e),
+      roleForEmail(e),
+    ]);
     await prisma.user.create({
-      data: { email: e, passwordHash, name: cleanName, workspaceId },
+      data: { email: e, passwordHash, name: cleanName, workspaceId, role },
     });
   }
   return { ok: true };

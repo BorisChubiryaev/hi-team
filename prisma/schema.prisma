@@ -155,6 +155,7 @@ model AllowedEmail {
   id          String   @id @default(cuid())
   email       String   @unique
   workspaceId String?
+  role        Role     @default(MEMBER) // роль, которую получит человек при первом входе
   createdAt   DateTime @default(now())
 
   workspace Workspace? @relation(fields: [workspaceId], references: [id])

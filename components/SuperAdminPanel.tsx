@@ -12,6 +12,7 @@ import {
   removeSubteam,
   renameWorkspace,
   saSetUserRole,
+  setAllowedEmailRole,
   setUserSuperAdmin,
   setUserWorkspace,
   setWorkspacePrompts,
@@ -36,7 +37,12 @@ type UserRow = {
   role: Role;
   isSuperAdmin: boolean;
 };
-type Allowed = { id: string; email: string; workspaceId: string | null };
+type Allowed = {
+  id: string;
+  email: string;
+  workspaceId: string | null;
+  role: Role;
+};
 
 const ROLES: Role[] = ["MEMBER", "LEAD", "DIRECTOR"];
 const selectClass =
@@ -60,6 +66,7 @@ export default function SuperAdminPanel({
   const [newWs, setNewWs] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [emailWs, setEmailWs] = useState(workspaces[0]?.id ?? "");
+  const [emailRole, setEmailRole] = useState<Role>("MEMBER");
 
   function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>) {
     setError("");
@@ -234,8 +241,8 @@ export default function SuperAdminPanel({
       <section>
         <h2 className="text-lg font-semibold text-ink">Доступ по командам</h2>
         <p className="mt-0.5 text-sm text-muted">
-          Почта → команда: новый человек при первом входе попадёт в выбранную
-          команду.
+          Почта → команда и роль: новый человек при первом входе попадёт в
+          выбранную команду с этой ролью.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -257,12 +264,29 @@ export default function SuperAdminPanel({
               </option>
             ))}
           </select>
+          <select
+            value={emailRole}
+            disabled={pending}
+            onChange={(e) => setEmailRole(e.target.value as Role)}
+            className={selectClass}
+            aria-label="Роль для почты"
+          >
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             disabled={pending || !newEmail.trim() || !emailWs}
             onClick={() =>
               run(async () => {
-                const r = await addAllowedEmailToWorkspace(emailWs, newEmail);
+                const r = await addAllowedEmailToWorkspace(
+                  emailWs,
+                  newEmail,
+                  emailRole,
+                );
                 if (r.ok) setNewEmail("");
                 return r;
               })
@@ -280,6 +304,7 @@ export default function SuperAdminPanel({
                 <tr className="bg-panel">
                   <Th>Почта</Th>
                   <Th>Команда</Th>
+                  <Th>Роль при входе</Th>
                   <Th></Th>
                 </tr>
               </thead>
@@ -288,6 +313,25 @@ export default function SuperAdminPanel({
                   <tr key={a.id} className="border-b border-line last:border-b-0">
                     <td className="p-3">{a.email}</td>
                     <td className="p-3 text-muted">{wsName(a.workspaceId)}</td>
+                    <td className="p-3">
+                      <select
+                        value={a.role}
+                        disabled={pending}
+                        onChange={(e) =>
+                          run(() =>
+                            setAllowedEmailRole(a.id, e.target.value as Role),
+                          )
+                        }
+                        className={selectClass}
+                        aria-label="Роль при первом входе"
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {ROLE_LABELS[r]}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="p-3 text-right">
                       <button
                         type="button"
