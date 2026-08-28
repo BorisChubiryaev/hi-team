@@ -219,14 +219,16 @@ async function callOpenRouter(
   }
 
   const wantTokens = opts.maxTokens ?? MAX_TOKENS;
-  let unavailable = ""; // текст последней 404 «нет эндпоинтов»
+  let lastSkip = ""; // текст последней пропущенной модели (404/429)
 
   for (const model of await modelCandidates(apiKey)) {
     let res = await openRouterRequest(apiKey, model, messages, wantTokens);
 
-    // Модель снята/переименована — пробуем следующую из запасных.
-    if (res.status === 404) {
-      unavailable = `${model}: ${(await res.text()).slice(0, 200)}`;
+    // Модель снята/переименована (404) или бесплатный провайдер временно
+    // перегружен (429) — обычная ситуация для free-тарифа. Не падаем, а
+    // пробуем следующую бесплатную модель из списка кандидатов.
+    if (res.status === 404 || res.status === 429) {
+      lastSkip = `${model}: ${(await res.text()).slice(0, 200)}`;
       continue;
     }
 
@@ -260,7 +262,9 @@ async function callOpenRouter(
   }
 
   throw new Error(
-    `Ни одна модель OpenRouter недоступна. Проверьте OPENROUTER_MODEL. ${unavailable}`.trim(),
+    "Бесплатные модели OpenRouter сейчас перегружены или недоступны. " +
+      "Повторите через минуту, добавьте свой ключ провайдера или пополните " +
+      `баланс. ${lastSkip}`.trim(),
   );
 }
 
