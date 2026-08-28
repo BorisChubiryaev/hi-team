@@ -2,8 +2,11 @@
 // Ключ берётся только из серверного окружения и никогда не уходит в браузер.
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+// Бесплатная модель (:free) — работает при нулевом балансе OpenRouter, без 402
+// по кредитам. У бесплатного тарифа свои rate-limit'ы; для платного качества
+// задайте OPENROUTER_MODEL (напр. google/gemini-2.0-flash-001) + пополните счёт.
 const DEFAULT_MODEL =
-  process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001";
+  process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-exp:free";
 
 // Ограничиваем длину ответа: без max_tokens OpenRouter резервирует полное окно
 // модели (десятки тысяч токенов) и падает с 402, если на балансе меньше кредитов.
