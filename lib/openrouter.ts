@@ -96,16 +96,17 @@ function buildUserPrompt(input: WeekReportInput): string {
   return lines.join("\n");
 }
 
-async function callOpenRouter(
-  messages: { role: "system" | "user"; content: string }[],
-  opts: { maxTokens?: number } = {},
-): Promise<{ content: string; model: string }> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY не задан в окружении");
-  }
+// Ниже этого лимита ответы бессмысленно обрезаны — значит на балансе почти
+// не осталось кредитов; честно просим пополнить, а не молча портим ответ.
+const MIN_AFFORDABLE_TOKENS = 400;
 
-  const res = await fetch(OPENROUTER_URL, {
+/** Один HTTP-запрос к OpenRouter с заданным max_tokens. */
+async function openRouterRequest(
+  apiKey: string,
+  messages: { role: "system" | "user"; content: string }[],
+  maxTokens: number,
+): Promise<Response> {
+  return fetch(OPENROUTER_URL, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -117,10 +118,42 @@ async function callOpenRouter(
     body: JSON.stringify({
       model: DEFAULT_MODEL,
       temperature: 0.3,
-      max_tokens: opts.maxTokens ?? MAX_TOKENS,
+      max_tokens: maxTokens,
       messages,
     }),
   });
+}
+
+async function callOpenRouter(
+  messages: { role: "system" | "user"; content: string }[],
+  opts: { maxTokens?: number } = {},
+): Promise<{ content: string; model: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY не задан в окружении");
+  }
+
+  let res = await openRouterRequest(
+    apiKey,
+    messages,
+    opts.maxTokens ?? MAX_TOKENS,
+  );
+
+  // На аккаунте мало кредитов: OpenRouter отдаёт 402 и сообщает, сколько
+  // токенов сейчас «по карману». Подстраиваемся и повторяем один раз, чтобы
+  // любой AI-вызов работал без ручной правки лимита при падающем балансе.
+  if (res.status === 402) {
+    const text = await res.text();
+    const afford = Number(text.match(/can only afford (\d+)/)?.[1]);
+    if (Number.isFinite(afford) && afford >= MIN_AFFORDABLE_TOKENS) {
+      res = await openRouterRequest(apiKey, messages, afford);
+    } else {
+      throw new Error(
+        "Недостаточно кредитов OpenRouter для ответа. Пополните баланс: " +
+          "https://openrouter.ai/settings/credits",
+      );
+    }
+  }
 
   if (!res.ok) {
     const text = await res.text();
