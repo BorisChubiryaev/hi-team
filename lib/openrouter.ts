@@ -2,20 +2,34 @@
 // Ключ берётся только из серверного окружения и никогда не уходит в браузер.
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-// Бесплатная модель (:free) — работает при нулевом балансе OpenRouter, без 402
-// по кредитам. У бесплатного тарифа свои rate-limit'ы; для платного качества
-// задайте OPENROUTER_MODEL (напр. google/gemini-2.0-flash-001) + пополните счёт.
-const DEFAULT_MODEL =
-  process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 
-// Запасные бесплатные модели: если основная недоступна (404 «No endpoints
-// found» — модель сняли/переименовали), по очереди пробуем эти. Так даже
-// мёртвая модель в OPENROUTER_MODEL не роняет все AI-вызовы.
+// Слуги бесплатных моделей на OpenRouter регулярно снимают/переименовывают,
+// поэтому НЕ хардкодим их: живой список берём у самого OpenRouter в рантайме
+// (discoverFreeModels) и выбираем первую рабочую. Если задан OPENROUTER_MODEL —
+// пробуем его первым (напр. платная модель при пополненном балансе).
+// Статический резерв на случай, если /models недоступен (сеть/лимит).
 const FALLBACK_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
   "deepseek/deepseek-chat-v3-0324:free",
-  "google/gemma-3-27b-it:free",
+  "qwen/qwen-2.5-72b-instruct:free",
 ];
+
+// Приоритет семейств для русскоязычных деловых сводок (чем раньше — тем выше).
+const FREE_PREFERENCE = [
+  "llama-3.3",
+  "llama-3.1",
+  "deepseek",
+  "qwen",
+  "mistral",
+  "gemini",
+  "gemma",
+];
+
+// Кэш живого списка бесплатных моделей (снижаем число запросов к /models).
+let freeModelCache: { at: number; ids: string[] } | null = null;
+const FREE_CACHE_MS = 60 * 60 * 1000; // 1 час
+const MAX_FREE_CANDIDATES = 6; // не перебирать десятки моделей на одном вызове
 
 // Ограничиваем длину ответа: без max_tokens OpenRouter резервирует полное окно
 // модели (десятки тысяч токенов) и падает с 402, если на балансе меньше кредитов.
@@ -137,14 +151,62 @@ async function openRouterRequest(
   });
 }
 
-/** Модели-кандидаты: сначала выбранная, затем запасные (без дублей). */
-function modelCandidates(): string[] {
+/**
+ * Живой список бесплатных моделей у OpenRouter (pricing = 0), отсортированный
+ * по предпочтению семейств. Кэшируется на час. При ошибке — пустой список
+ * (сработает статический резерв).
+ */
+async function discoverFreeModels(apiKey: string): Promise<string[]> {
+  if (freeModelCache && Date.now() - freeModelCache.at < FREE_CACHE_MS) {
+    return freeModelCache.ids;
+  }
+  try {
+    const res = await fetch(OPENROUTER_MODELS_URL, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const rows: unknown[] = Array.isArray(data?.data) ? data.data : [];
+    const ids = rows
+      .map((m) => m as { id?: string; pricing?: Record<string, unknown> })
+      .filter((m) => {
+        const p = m.pricing ?? {};
+        // Бесплатно = нулевая цена и за промпт, и за ответ.
+        return Number(p.prompt) === 0 && Number(p.completion) === 0;
+      })
+      .map((m) => m.id)
+      .filter((id): id is string => typeof id === "string");
+
+    const score = (id: string) => {
+      const i = FREE_PREFERENCE.findIndex((f) => id.toLowerCase().includes(f));
+      return i === -1 ? FREE_PREFERENCE.length : i;
+    };
+    ids.sort((a, b) => score(a) - score(b));
+    const top = ids.slice(0, MAX_FREE_CANDIDATES);
+    if (top.length) freeModelCache = { at: Date.now(), ids: top };
+    return top;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Модели-кандидаты по порядку: заданная OPENROUTER_MODEL (если есть) → живые
+ * бесплатные из каталога OpenRouter → статический резерв. Без дублей.
+ */
+async function modelCandidates(apiKey: string): Promise<string[]> {
   const seen = new Set<string>();
-  return [DEFAULT_MODEL, ...FALLBACK_MODELS].filter((m) => {
-    if (seen.has(m)) return false;
-    seen.add(m);
-    return true;
-  });
+  const out: string[] = [];
+  const add = (m?: string | null) => {
+    if (m && !seen.has(m)) {
+      seen.add(m);
+      out.push(m);
+    }
+  };
+  add(process.env.OPENROUTER_MODEL);
+  for (const m of await discoverFreeModels(apiKey)) add(m);
+  for (const m of FALLBACK_MODELS) add(m);
+  return out;
 }
 
 async function callOpenRouter(
@@ -159,7 +221,7 @@ async function callOpenRouter(
   const wantTokens = opts.maxTokens ?? MAX_TOKENS;
   let unavailable = ""; // текст последней 404 «нет эндпоинтов»
 
-  for (const model of modelCandidates()) {
+  for (const model of await modelCandidates(apiKey)) {
     let res = await openRouterRequest(apiKey, model, messages, wantTokens);
 
     // Модель снята/переименована — пробуем следующую из запасных.
