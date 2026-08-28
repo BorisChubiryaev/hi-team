@@ -6,7 +6,16 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 // по кредитам. У бесплатного тарифа свои rate-limit'ы; для платного качества
 // задайте OPENROUTER_MODEL (напр. google/gemini-2.0-flash-001) + пополните счёт.
 const DEFAULT_MODEL =
-  process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-exp:free";
+  process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+
+// Запасные бесплатные модели: если основная недоступна (404 «No endpoints
+// found» — модель сняли/переименовали), по очереди пробуем эти. Так даже
+// мёртвая модель в OPENROUTER_MODEL не роняет все AI-вызовы.
+const FALLBACK_MODELS = [
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "deepseek/deepseek-chat-v3-0324:free",
+  "google/gemma-3-27b-it:free",
+];
 
 // Ограничиваем длину ответа: без max_tokens OpenRouter резервирует полное окно
 // модели (десятки тысяч токенов) и падает с 402, если на балансе меньше кредитов.
@@ -103,9 +112,10 @@ function buildUserPrompt(input: WeekReportInput): string {
 // не осталось кредитов; честно просим пополнить, а не молча портим ответ.
 const MIN_AFFORDABLE_TOKENS = 400;
 
-/** Один HTTP-запрос к OpenRouter с заданным max_tokens. */
+/** Один HTTP-запрос к OpenRouter конкретной моделью и с заданным max_tokens. */
 async function openRouterRequest(
   apiKey: string,
+  model: string,
   messages: { role: "system" | "user"; content: string }[],
   maxTokens: number,
 ): Promise<Response> {
@@ -119,11 +129,21 @@ async function openRouterRequest(
       "X-Title": "hi-team",
     },
     body: JSON.stringify({
-      model: DEFAULT_MODEL,
+      model,
       temperature: 0.3,
       max_tokens: maxTokens,
       messages,
     }),
+  });
+}
+
+/** Модели-кандидаты: сначала выбранная, затем запасные (без дублей). */
+function modelCandidates(): string[] {
+  const seen = new Set<string>();
+  return [DEFAULT_MODEL, ...FALLBACK_MODELS].filter((m) => {
+    if (seen.has(m)) return false;
+    seen.add(m);
+    return true;
   });
 }
 
@@ -136,39 +156,50 @@ async function callOpenRouter(
     throw new Error("OPENROUTER_API_KEY не задан в окружении");
   }
 
-  let res = await openRouterRequest(
-    apiKey,
-    messages,
-    opts.maxTokens ?? MAX_TOKENS,
-  );
+  const wantTokens = opts.maxTokens ?? MAX_TOKENS;
+  let unavailable = ""; // текст последней 404 «нет эндпоинтов»
 
-  // На аккаунте мало кредитов: OpenRouter отдаёт 402 и сообщает, сколько
-  // токенов сейчас «по карману». Подстраиваемся и повторяем один раз, чтобы
-  // любой AI-вызов работал без ручной правки лимита при падающем балансе.
-  if (res.status === 402) {
-    const text = await res.text();
-    const afford = Number(text.match(/can only afford (\d+)/)?.[1]);
-    if (Number.isFinite(afford) && afford >= MIN_AFFORDABLE_TOKENS) {
-      res = await openRouterRequest(apiKey, messages, afford);
-    } else {
-      throw new Error(
-        "Недостаточно кредитов OpenRouter для ответа. Пополните баланс: " +
-          "https://openrouter.ai/settings/credits",
-      );
+  for (const model of modelCandidates()) {
+    let res = await openRouterRequest(apiKey, model, messages, wantTokens);
+
+    // Модель снята/переименована — пробуем следующую из запасных.
+    if (res.status === 404) {
+      unavailable = `${model}: ${(await res.text()).slice(0, 200)}`;
+      continue;
     }
+
+    // На аккаунте мало кредитов: OpenRouter отдаёт 402 и сообщает, сколько
+    // токенов сейчас «по карману». Подстраиваемся и повторяем один раз.
+    if (res.status === 402) {
+      const text = await res.text();
+      const afford = Number(text.match(/can only afford (\d+)/)?.[1]);
+      if (Number.isFinite(afford) && afford >= MIN_AFFORDABLE_TOKENS) {
+        res = await openRouterRequest(apiKey, model, messages, afford);
+      } else {
+        throw new Error(
+          "Недостаточно кредитов OpenRouter для ответа. Пополните баланс " +
+            "или выберите бесплатную модель (OPENROUTER_MODEL): " +
+            "https://openrouter.ai/settings/credits",
+        );
+      }
+    }
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 300)}`);
+    }
+
+    const data = await res.json();
+    const content: string | undefined = data?.choices?.[0]?.message?.content;
+    if (!content || !content.trim()) {
+      throw new Error("Модель вернула пустой ответ");
+    }
+    return { content: content.trim(), model: data.model || model };
   }
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const content: string | undefined = data?.choices?.[0]?.message?.content;
-  if (!content || !content.trim()) {
-    throw new Error("Модель вернула пустой ответ");
-  }
-  return { content: content.trim(), model: data.model || DEFAULT_MODEL };
+  throw new Error(
+    `Ни одна модель OpenRouter недоступна. Проверьте OPENROUTER_MODEL. ${unavailable}`.trim(),
+  );
 }
 
 export async function summarizeWeek(
