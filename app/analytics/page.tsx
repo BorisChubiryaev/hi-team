@@ -3,9 +3,14 @@ import AnalyticsFilters from "@/components/AnalyticsFilters";
 import ColumnChart from "@/components/charts/ColumnChart";
 import HBarChart from "@/components/charts/HBarChart";
 import Heatmap from "@/components/charts/Heatmap";
+import DirectorQuarterReviews, {
+  type EmployeeReview,
+} from "@/components/DirectorQuarterReviews";
 import { getAnalytics } from "@/lib/analytics";
 // (подкоманды теперь на команду — валидируются по options из getAnalytics)
 import { requireDbUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { parseQuarterKey, recentQuarters } from "@/lib/periods";
 import { shortWeekLabel } from "@/lib/weeks";
 import type { ProjectStatus } from "@prisma/client";
 
@@ -50,6 +55,89 @@ export default async function AnalyticsPage({
   });
   const withShort = (points: { label: string; value: number }[]) =>
     points.map((p) => ({ ...p, short: shortWeekLabel(p.label) }));
+
+  // Раздел только для роли «Руководитель»: квартальные резюме сотрудников к
+  // встрече 1:1. Собираем данные лишь для DIRECTOR, чтобы не грузить остальных.
+  let director: {
+    periodLabel: string;
+    quarters: { key: string; label: string; href: string; active: boolean }[];
+    employees: EmployeeReview[];
+  } | null = null;
+
+  if (me.role === "DIRECTOR") {
+    const quarters = recentQuarters(6);
+    const rq = firstParam(params.rq);
+    const selected = (rq && parseQuarterKey(rq)) || quarters[0];
+
+    const buildHref = (key: string) => {
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) {
+        const val = firstParam(v);
+        if (val && k !== "rq") qs.set(k, val);
+      }
+      qs.set("rq", key);
+      return `/analytics?${qs.toString()}`;
+    };
+
+    const [members, preps] = await Promise.all([
+      prisma.user.findMany({
+        where: {
+          workspaceId: me.workspaceId,
+          active: true,
+          role: { not: "DIRECTOR" }, // руководители отчёты/резюме не пишут
+        },
+        orderBy: [{ name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          subteam: { select: { key: true } },
+        },
+      }),
+      prisma.reviewPrep.findMany({
+        where: {
+          periodStart: selected.start,
+          periodEnd: selected.end,
+          user: { workspaceId: me.workspaceId },
+        },
+        select: {
+          userId: true,
+          content: true,
+          focus: true,
+          updatedAt: true,
+        },
+      }),
+    ]);
+
+    const prepByUser = new Map(preps.map((p) => [p.userId, p]));
+    const employees: EmployeeReview[] = members.map((m) => {
+      const prep = prepByUser.get(m.id);
+      return {
+        id: m.id,
+        name: m.name ?? m.email,
+        subteamKey: m.subteam?.key ?? null,
+        hasPrep: Boolean(prep),
+        content: prep?.content ?? "",
+        focus: prep?.focus ?? null,
+        updatedAt: prep
+          ? new Date(prep.updatedAt).toLocaleDateString("ru-RU")
+          : "",
+      };
+    });
+    // Сначала — у кого готово, затем по имени (порядок уже по имени из БД).
+    employees.sort((x, y) => Number(y.hasPrep) - Number(x.hasPrep));
+
+    director = {
+      periodLabel: selected.label,
+      quarters: quarters.map((q) => ({
+        key: q.key,
+        label: q.label,
+        href: buildHref(q.key),
+        active: q.key === selected.key,
+      })),
+      employees,
+    };
+  }
 
   return (
     <>
@@ -190,6 +278,14 @@ export default async function AnalyticsPage({
             )}
           </ChartCard>
         </div>
+
+        {director && (
+          <DirectorQuarterReviews
+            quarters={director.quarters}
+            periodLabel={director.periodLabel}
+            employees={director.employees}
+          />
+        )}
       </main>
     </>
   );
