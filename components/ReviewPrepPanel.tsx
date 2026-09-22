@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import Markdown from "@/components/Markdown";
-import { sendReviewToTelegram } from "@/app/review/actions";
+import { saveReviewPrep, sendReviewToTelegram } from "@/app/review/actions";
 
 export default function ReviewPrepPanel({
   start,
@@ -32,6 +32,35 @@ export default function ReviewPrepPanel({
   const [copied, setCopied] = useState(false);
   const [tgState, setTgState] = useState<"idle" | "sent">("idle");
   const [tgPending, startTg] = useTransition();
+  // Правка сгенерированного текста: draft — редактируемая копия content.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [savePending, startSave] = useTransition();
+
+  function startEdit() {
+    setError("");
+    setDraft(content);
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setDraft("");
+  }
+
+  function saveEdit() {
+    setError("");
+    startSave(async () => {
+      const res = await saveReviewPrep(start, end, draft);
+      if (res.ok) {
+        setContent(draft.trim());
+        setGeneratedAt(new Date().toLocaleDateString("ru-RU"));
+        setEditing(false);
+      } else {
+        setError(res.error);
+      }
+    });
+  }
 
   function sendToTelegram() {
     setError("");
@@ -91,6 +120,10 @@ export default function ReviewPrepPanel({
 
   return (
     <div className="card p-5">
+      <p className="mb-4 rounded-lg border border-line bg-panel px-3 py-2 text-xs text-muted">
+        👁️ Это резюме видит ваш руководитель — в разделе «Аналитика» за
+        соответствующий квартал. Текст можно отредактировать перед встречей.
+      </p>
       <label className="block">
         <span className="text-sm font-medium text-ink">
           Личный акцент{" "}
@@ -114,7 +147,7 @@ export default function ReviewPrepPanel({
         <button
           type="button"
           onClick={generate}
-          disabled={loading || !hasData}
+          disabled={loading || !hasData || editing}
           title={!hasData ? "За этот период у вас нет отчётов" : undefined}
           className="btn btn-primary"
         >
@@ -124,8 +157,15 @@ export default function ReviewPrepPanel({
               ? "Пересобрать"
               : "Собрать материалы к встрече"}
         </button>
-        {content && (
+        {content && !editing && (
           <>
+            <button
+              type="button"
+              onClick={startEdit}
+              className="btn btn-ghost btn-sm"
+            >
+              Редактировать
+            </button>
             <button type="button" onClick={copy} className="btn btn-ghost btn-sm">
               {copied ? "Скопировано ✓" : "Копировать"}
             </button>
@@ -156,16 +196,46 @@ export default function ReviewPrepPanel({
             )}
           </>
         )}
-        {generatedAt && !loading && (
+        {generatedAt && !loading && !editing && (
           <span className="text-xs text-faint">Обновлено: {generatedAt}</span>
         )}
       </div>
 
-      {error && (
-        <p className="mt-2 text-sm text-danger">{error}</p>
-      )}
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
 
-      {content ? (
+      {editing ? (
+        <div className="mt-5 border-t border-line pt-4">
+          <p className="mb-1.5 text-xs text-muted">
+            Правьте текст в формате Markdown. Изменения сохранятся в вашем резюме
+            к встрече (и увидит руководитель).
+          </p>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={16}
+            maxLength={20000}
+            className="input min-h-72 w-full resize-y font-mono text-[13px] leading-relaxed"
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={saveEdit}
+              disabled={savePending || !draft.trim()}
+              className="btn btn-primary btn-sm"
+            >
+              {savePending ? "Сохраняю…" : "Сохранить"}
+            </button>
+            <button
+              type="button"
+              onClick={cancelEdit}
+              disabled={savePending}
+              className="btn btn-ghost btn-sm"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      ) : content ? (
         <div className="mt-5 border-t border-line pt-4">
           <Markdown>{content}</Markdown>
         </div>
