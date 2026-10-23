@@ -10,6 +10,15 @@ const STATUSES: ProjectStatus[] = ["ACTIVE", "PAUSED", "DONE"];
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+type Manager = Awaited<ReturnType<typeof requireManager>>;
+
+/** Проект команды менеджера; чужие (из других команд) не отдаём. */
+function teamProject(me: Manager, id: string) {
+  return prisma.project.findFirst({
+    where: { id, workspaceId: me.workspaceId },
+  });
+}
+
 function revalidateProjects(id?: string) {
   revalidatePath("/projects");
   if (id) revalidatePath(`/projects/${id}`);
@@ -19,8 +28,9 @@ function revalidateProjects(id?: string) {
 
 /** Меняет статус проекта (Активен / На паузе / Завершён). Только LEAD. */
 export async function setProjectStatus(id: string, status: ProjectStatus) {
-  await requireManager();
+  const me = await requireManager();
   if (!STATUSES.includes(status)) throw new Error("Некорректный статус");
+  if (!(await teamProject(me, id))) throw new Error("Проект не найден");
 
   await prisma.project.update({ where: { id }, data: { status } });
   revalidateProjects(id);
@@ -34,16 +44,13 @@ export async function renameProject(
   id: string,
   newName: string,
 ): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
 
   const name = normalizeProjectName(newName);
   if (!name) return { ok: false, error: "Имя не может быть пустым" };
 
   // Конфликт имени проверяем в рамках команды проекта (у каждой свой каталог).
-  const target = await prisma.project.findUnique({
-    where: { id },
-    select: { workspaceId: true },
-  });
+  const target = await teamProject(me, id);
   if (!target) return { ok: false, error: "Проект не найден" };
 
   const clash = await prisma.project.findFirst({
@@ -79,12 +86,9 @@ export async function renameProject(
  * такие строки просто перестают быть привязаны к сущности проекта. Только LEAD.
  */
 export async function deleteProject(id: string): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
 
-  const project = await prisma.project.findUnique({
-    where: { id },
-    select: { id: true },
-  });
+  const project = await teamProject(me, id);
   if (!project) return { ok: false, error: "Проект не найден" };
 
   await prisma.project.delete({ where: { id } });
@@ -102,14 +106,14 @@ export async function mergeProjects(
   sourceId: string,
   targetId: string,
 ): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
 
   if (sourceId === targetId) {
     return { ok: false, error: "Нельзя слить проект сам с собой" };
   }
   const [source, target] = await Promise.all([
-    prisma.project.findUnique({ where: { id: sourceId } }),
-    prisma.project.findUnique({ where: { id: targetId } }),
+    teamProject(me, sourceId),
+    teamProject(me, targetId),
   ]);
   if (!source || !target) {
     return { ok: false, error: "Проект не найден" };

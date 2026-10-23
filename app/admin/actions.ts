@@ -13,22 +13,39 @@ export type ActionResult = { ok: true } | { ok: false; error: string };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ROLES: Role[] = ["MEMBER", "LEAD", "DIRECTOR"];
 
+type Manager = Awaited<ReturnType<typeof requireManager>>;
+
+/** Сотрудник команды менеджера; чужих (из других команд) не отдаём. */
+async function teamUser(me: Manager, userId: string) {
+  return prisma.user.findFirst({
+    where: { id: userId, workspaceId: me.workspaceId },
+  });
+}
+
+const NOT_FOUND: ActionResult = { ok: false, error: "Пользователь не найден" };
+
 /** Меняет роль. Нельзя убрать последнего управляющего — иначе админка недоступна никому. */
 export async function setUserRole(
   userId: string,
   role: Role,
 ): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
   if (!ROLES.includes(role)) {
     return { ok: false, error: "Некорректная роль" };
   }
+  const target = await teamUser(me, userId);
+  if (!target) return NOT_FOUND;
 
-  // Смена, отнимающая права управления, — проверяем, что останется хоть один управляющий.
+  // Смена, отнимающая права управления, — проверяем, что в команде останется
+  // хоть один управляющий.
   if (!canManage(role)) {
-    const target = await prisma.user.findUnique({ where: { id: userId } });
-    if (target && canManage(target.role) && target.active) {
+    if (canManage(target.role) && target.active) {
       const managers = await prisma.user.count({
-        where: { role: { in: MANAGER_ROLES }, active: true },
+        where: {
+          workspaceId: me.workspaceId,
+          role: { in: MANAGER_ROLES },
+          active: true,
+        },
       });
       if (managers <= 1) {
         return {
@@ -54,6 +71,7 @@ export async function setUserActive(
   if (userId === me.id && !active) {
     return { ok: false, error: "Нельзя деактивировать себя" };
   }
+  if (!(await teamUser(me, userId))) return NOT_FOUND;
 
   await prisma.user.update({ where: { id: userId }, data: { active } });
   revalidatePath("/admin");
@@ -72,12 +90,12 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
     return { ok: false, error: "Нельзя удалить себя" };
   }
 
-  const target = await prisma.user.findUnique({ where: { id: userId } });
-  if (!target) return { ok: false, error: "Пользователь не найден" };
+  const target = await teamUser(me, userId);
+  if (!target) return NOT_FOUND;
 
   if (canManage(target.role)) {
     const managers = await prisma.user.count({
-      where: { role: { in: MANAGER_ROLES } },
+      where: { workspaceId: me.workspaceId, role: { in: MANAGER_ROLES } },
     });
     if (managers <= 1) {
       return { ok: false, error: "Нельзя удалить последнего управляющего" };
@@ -95,7 +113,8 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
  * вход? Задать пароль». Руководитель нового пароля не видит.
  */
 export async function resetUserPassword(userId: string): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
+  if (!(await teamUser(me, userId))) return NOT_FOUND;
   await prisma.user.update({
     where: { id: userId },
     data: { passwordHash: null },
@@ -110,6 +129,7 @@ export async function setUserSubteam(
   subteamId: string,
 ): Promise<ActionResult> {
   const me = await requireManager();
+  if (!(await teamUser(me, userId))) return NOT_FOUND;
   let valid: string | null = null;
   if (subteamId) {
     const st = await prisma.subteam.findFirst({
@@ -133,7 +153,8 @@ export async function setUserVacation(
   userId: string,
   until: string,
 ): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
+  if (!(await teamUser(me, userId))) return NOT_FOUND;
   const value = until.trim();
   let date: Date | null = null;
   if (value) {
@@ -159,7 +180,8 @@ export async function setUserTelegram(
   userId: string,
   chatId: string,
 ): Promise<ActionResult> {
-  await requireManager();
+  const me = await requireManager();
+  if (!(await teamUser(me, userId))) return NOT_FOUND;
   const value = chatId.trim();
   await prisma.user.update({
     where: { id: userId },
@@ -244,7 +266,9 @@ export async function sendReminderNow(): Promise<{ message: string }> {
 /** Немедленно отправить сводку в общий чат. Только LEAD. */
 export async function sendGroupRosterNow(): Promise<{ message: string }> {
   const me = await requireManager();
-  const s = await prisma.botSettings.findUnique({ where: { id: "singleton" } });
+  const s = await prisma.botSettings.findFirst({
+    where: { workspaceId: me.workspaceId },
+  });
   if (!s?.groupChatId) {
     return {
       message: "Групповой чат не подключён. Добавьте бота в чат и отправьте /here.",
@@ -265,6 +289,11 @@ export async function addAllowedEmail(email: string): Promise<ActionResult> {
   if (!EMAIL_RE.test(e)) return { ok: false, error: "Некорректная почта" };
 
   // Почта добавляется в команду менеджера — так новый человек попадёт туда же.
+  // Чужую запись не перетягиваем: переносом между командами ведает супер-админ.
+  const existing = await prisma.allowedEmail.findUnique({ where: { email: e } });
+  if (existing && existing.workspaceId !== me.workspaceId) {
+    return { ok: false, error: "Эта почта уже привязана к другой команде" };
+  }
   await prisma.allowedEmail.upsert({
     where: { email: e },
     update: { workspaceId: me.workspaceId },
@@ -276,8 +305,10 @@ export async function addAllowedEmail(email: string): Promise<ActionResult> {
 
 /** Убирает почту из allowlist (существующий пользователь при этом остаётся). */
 export async function removeAllowedEmail(id: string): Promise<ActionResult> {
-  await requireManager();
-  await prisma.allowedEmail.delete({ where: { id } });
+  const me = await requireManager();
+  await prisma.allowedEmail.deleteMany({
+    where: { id, workspaceId: me.workspaceId },
+  });
   revalidatePath("/admin");
   return { ok: true };
 }
