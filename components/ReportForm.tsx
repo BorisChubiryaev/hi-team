@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { improveReport, saveReport } from "@/app/report/actions";
 import type { ProjectInput } from "@/lib/reports";
+import ProjectCombobox from "@/components/ProjectCombobox";
 import { subteamTag, type SubteamLite } from "@/lib/subteam";
 
 const EMPTY: ProjectInput = { name: "", done: "", blockers: "", plans: "" };
@@ -155,22 +156,14 @@ export default function ReportForm({
           </div>
         </div>
       )}
-      {projectNames.length > 0 && (
-        <datalist id="project-names">
-          {projectNames.map((name) => (
-            <option key={name} value={name} />
-          ))}
-        </datalist>
-      )}
       {projects.map((p, i) => (
         <div key={i} className="card p-5">
           <div className="flex items-center justify-between gap-3">
-            <input
+            <ProjectCombobox
               value={p.name}
-              onChange={(e) => update(i, "name", e.target.value)}
-              list="project-names"
+              onChange={(v) => update(i, "name", v)}
+              options={projectNames}
               placeholder="Название проекта / направления"
-              className="input font-medium"
             />
             <div className="flex shrink-0 items-center gap-1">
               <button
