@@ -22,6 +22,11 @@ export function canManage(role: Role): boolean {
   return MANAGER_ROLES.includes(role);
 }
 
+/** Может ли роль запускать генерацию AI-сводок (недели, месяца, проекта). */
+export function canGenerateSummary(role: Role): boolean {
+  return role === "DIRECTOR";
+}
+
 /** Ожидается ли от роли еженедельный отчёт. */
 export function writesReports(role: Role): boolean {
   return role !== "DIRECTOR";

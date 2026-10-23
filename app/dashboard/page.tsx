@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import SummaryCell from "@/components/SummaryCell";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canGenerateSummary } from "@/lib/roles";
 import { subteamTag } from "@/lib/subteam";
 import { isOnVacation } from "@/lib/vacation";
 import { currentWeekRange } from "@/lib/weeks";
@@ -260,6 +261,7 @@ export default async function DashboardPage({
                           initialContent={w.summaries[0]?.content ?? null}
                           initialModel={w.summaries[0]?.model ?? null}
                           hasReports={w.reports.length > 0}
+                          canGenerate={canGenerateSummary(me.role)}
                         />
                       </div>
                     </details>
@@ -335,7 +337,12 @@ export default async function DashboardPage({
             })}
           </div>
         ) : (
-          <TableView users={users} weeks={weeks} byWeekUser={byWeekUser} />
+          <TableView
+            users={users}
+            weeks={weeks}
+            byWeekUser={byWeekUser}
+            canGenerate={canGenerateSummary(me.role)}
+          />
         )}
 
         {totalWeeks > weeks.length && (
@@ -443,6 +450,7 @@ function TableView({
   users,
   weeks,
   byWeekUser,
+  canGenerate,
 }: {
   users: UserLite[];
   weeks: {
@@ -452,6 +460,7 @@ function TableView({
     reports: { id: string }[];
   }[];
   byWeekUser: Map<string, Map<string, ProjectRow[]>>;
+  canGenerate: boolean;
 }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-line-strong">
@@ -524,6 +533,7 @@ function TableView({
                     initialContent={w.summaries[0]?.content ?? null}
                     initialModel={w.summaries[0]?.model ?? null}
                     hasReports={w.reports.length > 0}
+                    canGenerate={canGenerate}
                   />
                 </td>
               </tr>

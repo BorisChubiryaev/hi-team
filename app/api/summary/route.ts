@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canGenerateSummary } from "@/lib/roles";
 import { generateWeekSummary } from "@/lib/summary";
 
 export async function POST(req: Request) {
@@ -21,8 +22,14 @@ export async function POST(req: Request) {
 
   const me = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { workspaceId: true },
+    select: { workspaceId: true, role: true, active: true },
   });
+  if (!me?.active || !canGenerateSummary(me.role)) {
+    return NextResponse.json(
+      { error: "Запускать AI-сводку может только руководитель" },
+      { status: 403 },
+    );
+  }
   const result = await generateWeekSummary(weekId, me?.workspaceId ?? null);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

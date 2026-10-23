@@ -9,11 +9,14 @@ export default function MonthSummaryPanel({
   initialContent,
   initialGeneratedAt,
   hasReports,
+  canGenerate,
 }: {
   month: string;
   initialContent: string | null;
   initialGeneratedAt: string | null;
   hasReports: boolean;
+  // Запуск генерации — только для руководителя; остальные лишь читают.
+  canGenerate: boolean;
 }) {
   const [content, setContent] = useState(initialContent ?? "");
   const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt ?? "");
@@ -45,19 +48,21 @@ export default function MonthSummaryPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold text-cream-ink">AI-итоги месяца</h2>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={generate}
-            disabled={loading || !hasReports}
-            title={!hasReports ? "За этот месяц нет отчётов" : undefined}
-            className="btn btn-primary btn-sm"
-          >
-            {loading
-              ? "Генерация…"
-              : content
-                ? "Обновить итоги"
-                : "Сгенерировать итоги"}
-          </button>
+          {canGenerate && (
+            <button
+              type="button"
+              onClick={generate}
+              disabled={loading || !hasReports}
+              title={!hasReports ? "За этот месяц нет отчётов" : undefined}
+              className="btn btn-primary btn-sm"
+            >
+              {loading
+                ? "Генерация…"
+                : content
+                  ? "Обновить итоги"
+                  : "Сгенерировать итоги"}
+            </button>
+          )}
           {content && (
             <a
               href={`/api/export?month=${month}`}

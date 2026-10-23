@@ -3,6 +3,7 @@ import Header from "@/components/Header";
 import MonthSummaryPanel from "@/components/MonthSummaryPanel";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canGenerateSummary } from "@/lib/roles";
 import { formatMonthLabel, monthKey } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
@@ -92,6 +93,7 @@ export default async function MonthlyPage({
                   : null
               }
               hasReports
+              canGenerate={canGenerateSummary(me.role)}
             />
           </>
         )}

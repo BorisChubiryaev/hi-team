@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { canGenerateSummary } from "@/lib/roles";
 import { summarizeProject } from "@/lib/openrouter";
 
 // Сколько последних недель с упоминаниями проекта отдаём модели.
@@ -16,8 +17,14 @@ export async function POST(
   }
   const me = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { workspaceId: true },
+    select: { workspaceId: true, role: true, active: true },
   });
+  if (!me?.active || !canGenerateSummary(me.role)) {
+    return NextResponse.json(
+      { error: "Запускать AI-сводку может только руководитель" },
+      { status: 403 },
+    );
+  }
 
   const { id } = await params;
   const project = await prisma.project.findUnique({ where: { id } });
