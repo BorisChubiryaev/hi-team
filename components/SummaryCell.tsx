@@ -9,11 +9,14 @@ export default function SummaryCell({
   initialContent,
   initialModel,
   hasReports,
+  canGenerate,
 }: {
   weekId: string;
   initialContent: string | null;
   initialModel: string | null;
   hasReports: boolean;
+  // Запуск генерации — только для руководителя; остальные лишь читают.
+  canGenerate: boolean;
 }) {
   const [content, setContent] = useState(initialContent ?? "");
   const [model, setModel] = useState(initialModel ?? "");
@@ -67,19 +70,21 @@ export default function SummaryCell({
       {error && <p className="text-xs text-danger">{error}</p>}
 
       <div className="mt-auto flex items-center gap-2 pt-1">
-        <button
-          type="button"
-          onClick={generate}
-          disabled={loading || !hasReports}
-          title={!hasReports ? "Нет отчётов за эту неделю" : undefined}
-          className="btn btn-primary btn-sm"
-        >
-          {loading
-            ? "Генерация…"
-            : content
-              ? "Обновить сводку"
-              : "Сгенерировать сводку"}
-        </button>
+        {canGenerate && (
+          <button
+            type="button"
+            onClick={generate}
+            disabled={loading || !hasReports}
+            title={!hasReports ? "Нет отчётов за эту неделю" : undefined}
+            className="btn btn-primary btn-sm"
+          >
+            {loading
+              ? "Генерация…"
+              : content
+                ? "Обновить сводку"
+                : "Сгенерировать сводку"}
+          </button>
+        )}
         {content && (
           <button
             type="button"

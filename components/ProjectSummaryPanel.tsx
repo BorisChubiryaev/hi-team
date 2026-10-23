@@ -9,11 +9,14 @@ export default function ProjectSummaryPanel({
   initialContent,
   initialGeneratedAt,
   hasEntries,
+  canGenerate,
 }: {
   projectId: string;
   initialContent: string | null;
   initialGeneratedAt: string | null;
   hasEntries: boolean;
+  // Запуск генерации — только для руководителя; остальные лишь читают.
+  canGenerate: boolean;
 }) {
   const [content, setContent] = useState(initialContent ?? "");
   const [generatedAt, setGeneratedAt] = useState(initialGeneratedAt ?? "");
@@ -43,19 +46,21 @@ export default function ProjectSummaryPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-semibold text-cream-ink">AI-статус проекта</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={generate}
-            disabled={loading || !hasEntries}
-            title={!hasEntries ? "По проекту нет упоминаний в отчётах" : undefined}
-            className="btn btn-primary btn-sm"
-          >
-            {loading
-              ? "Генерация…"
-              : content
-                ? "Обновить статус"
-                : "Сгенерировать статус"}
-          </button>
+          {canGenerate && (
+            <button
+              type="button"
+              onClick={generate}
+              disabled={loading || !hasEntries}
+              title={!hasEntries ? "По проекту нет упоминаний в отчётах" : undefined}
+              className="btn btn-primary btn-sm"
+            >
+              {loading
+                ? "Генерация…"
+                : content
+                  ? "Обновить статус"
+                  : "Сгенерировать статус"}
+            </button>
+          )}
           {content && (
             <EmailSummaryButton
               subject="AI-статус проекта — hi-team"

@@ -8,7 +8,7 @@ import ColumnChart from "@/components/charts/ColumnChart";
 import { requireDbUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PROJECT_STATUS_LABELS } from "@/lib/projects";
-import { canManage } from "@/lib/roles";
+import { canGenerateSummary, canManage } from "@/lib/roles";
 import { isoDate, recentWeeks, shortWeekLabel } from "@/lib/weeks";
 
 export const dynamic = "force-dynamic";
@@ -108,6 +108,7 @@ export default async function ProjectPage({
                 : null
             }
             hasEntries={project.entries.length > 0}
+            canGenerate={canGenerateSummary(me.role)}
           />
           {isLead && (
             <ProjectAdminPanel
