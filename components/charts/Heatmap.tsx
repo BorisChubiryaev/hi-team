@@ -4,7 +4,7 @@
 // (валидирована validate_palette.js в обоих режимах), 2px-зазоры поверхности
 // между ячейками, тултип и легенда шкалы, таблица данных.
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 export type HeatmapData = {
   weekLabels: string[];
@@ -23,6 +23,8 @@ function cellColor(value: number, max: number): string {
   return `var(${RAMP_VARS[bucket]})`;
 }
 
+type Hover = { r: number; c: number; rect: DOMRect };
+
 export default function Heatmap({
   data,
   unit,
@@ -32,8 +34,41 @@ export default function Heatmap({
   unit: string;
   tableCaption: string;
 }) {
-  const [hover, setHover] = useState<{ r: number; c: number } | null>(null);
+  const [hover, setHover] = useState<Hover | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
+  const [tipPos, setTipPos] = useState<{ left: number; top: number } | null>(
+    null,
+  );
   const max = Math.max(...data.rows.flatMap((r) => r.cells), 1);
+
+  // Тултип вынесен в position: fixed — внутри overflow-x-auto он обрезался
+  // у верхних рядов. Ставим над ячейкой (или под ней, если сверху нет места)
+  // и прижимаем к краям окна.
+  useLayoutEffect(() => {
+    const tip = tipRef.current;
+    if (!hover || !tip) return setTipPos(null);
+    const { width, height } = tip.getBoundingClientRect();
+    const gap = 4;
+    const cx = hover.rect.left + hover.rect.width / 2;
+    const left = Math.min(
+      Math.max(cx - width / 2, 8),
+      window.innerWidth - width - 8,
+    );
+    const above = hover.rect.top - height - gap;
+    const top = above >= 8 ? above : hover.rect.bottom + gap;
+    setTipPos({ left, top });
+  }, [hover]);
+
+  // При прокрутке страницы координаты устаревают — прячем тултип.
+  useLayoutEffect(() => {
+    if (!hover) return;
+    const hide = () => setHover(null);
+    window.addEventListener("scroll", hide, true);
+    return () => window.removeEventListener("scroll", hide, true);
+  }, [hover]);
+
+  const show = (r: number, c: number, el: HTMLElement) =>
+    setHover({ r, c, rect: el.getBoundingClientRect() });
 
   return (
     <div>
@@ -66,12 +101,12 @@ export default function Heatmap({
                 <div
                   key={c}
                   tabIndex={0}
-                  onMouseEnter={() => setHover({ r, c })}
+                  onMouseEnter={(e) => show(r, c, e.currentTarget)}
                   onMouseLeave={() => setHover(null)}
-                  onFocus={() => setHover({ r, c })}
+                  onFocus={(e) => show(r, c, e.currentTarget)}
                   onBlur={() => setHover(null)}
                   aria-label={`${row.name}, ${data.weekLabels[c]}: ${v} ${unit}`}
-                  className="relative h-6 w-8 cursor-default rounded-[3px] outline-none"
+                  className="h-6 w-8 cursor-default rounded-[3px] outline-none"
                   style={{
                     background: cellColor(v, max),
                     boxShadow:
@@ -79,27 +114,7 @@ export default function Heatmap({
                         ? "inset 0 0 0 1.5px var(--viz-text-secondary)"
                         : undefined,
                   }}
-                >
-                  {hover?.r === r && hover?.c === c && (
-                    <div
-                      className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs shadow-sm"
-                      style={{
-                        background: "var(--viz-surface)",
-                        borderColor: "var(--viz-grid)",
-                      }}
-                    >
-                      <span
-                        className="font-semibold tabular-nums"
-                        style={{ color: "var(--viz-text-primary)" }}
-                      >
-                        {v} {unit}
-                      </span>{" "}
-                      <span style={{ color: "var(--viz-text-secondary)" }}>
-                        · {row.name}, {data.weekLabels[c]}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                />
               ))}
             </div>
           ))}
@@ -124,6 +139,31 @@ export default function Heatmap({
           </div>
         </div>
       </div>
+
+      {hover && (
+        <div
+          ref={tipRef}
+          role="tooltip"
+          className="pointer-events-none fixed z-50 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs shadow-sm"
+          style={{
+            left: tipPos?.left ?? 0,
+            top: tipPos?.top ?? 0,
+            visibility: tipPos ? "visible" : "hidden",
+            background: "var(--viz-surface)",
+            borderColor: "var(--viz-grid)",
+          }}
+        >
+          <span
+            className="font-semibold tabular-nums"
+            style={{ color: "var(--viz-text-primary)" }}
+          >
+            {data.rows[hover.r].cells[hover.c]} {unit}
+          </span>{" "}
+          <span style={{ color: "var(--viz-text-secondary)" }}>
+            · {data.rows[hover.r].name}, {data.weekLabels[hover.c]}
+          </span>
+        </div>
+      )}
 
       <details className="mt-3">
         <summary
