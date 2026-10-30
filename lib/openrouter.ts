@@ -209,6 +209,13 @@ async function modelCandidates(apiKey: string): Promise<string[]> {
   return out;
 }
 
+// Ответы, при которых стоит попробовать следующую модель, а не падать:
+// модель снята (404), таймаут (408), лимит free-тарифа (429) и сбои на
+// стороне провайдера (5xx, напр. 503 «no upstreams available»).
+function isSkippable(status: number): boolean {
+  return status === 404 || status === 408 || status === 429 || status >= 500;
+}
+
 async function callOpenRouter(
   messages: { role: "system" | "user"; content: string }[],
   opts: { maxTokens?: number } = {},
@@ -219,16 +226,14 @@ async function callOpenRouter(
   }
 
   const wantTokens = opts.maxTokens ?? MAX_TOKENS;
-  let lastSkip = ""; // текст последней пропущенной модели (404/429)
+  let lastSkip = ""; // последняя пропущенная модель и код ответа
 
   for (const model of await modelCandidates(apiKey)) {
-    let res = await openRouterRequest(apiKey, model, messages, wantTokens);
-
-    // Модель снята/переименована (404) или бесплатный провайдер временно
-    // перегружен (429) — обычная ситуация для free-тарифа. Не падаем, а
-    // пробуем следующую бесплатную модель из списка кандидатов.
-    if (res.status === 404 || res.status === 429) {
-      lastSkip = `${model}: ${(await res.text()).slice(0, 200)}`;
+    let res: Response;
+    try {
+      res = await openRouterRequest(apiKey, model, messages, wantTokens);
+    } catch {
+      lastSkip = `${model}: сеть`;
       continue;
     }
 
@@ -248,6 +253,12 @@ async function callOpenRouter(
       }
     }
 
+    // Модель снята, перегружена или у провайдера сбой — обычная ситуация для
+    // free-тарифа. Не падаем, а пробуем следующую модель из списка кандидатов.
+    if (isSkippable(res.status)) {
+      lastSkip = `${model}: ${res.status}`;
+      continue;
+    }
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`OpenRouter ${res.status}: ${text.slice(0, 300)}`);
@@ -256,7 +267,8 @@ async function callOpenRouter(
     const data = await res.json();
     const content: string | undefined = data?.choices?.[0]?.message?.content;
     if (!content || !content.trim()) {
-      throw new Error("Модель вернула пустой ответ");
+      lastSkip = `${model}: пустой ответ`;
+      continue;
     }
     return { content: content.trim(), model: data.model || model };
   }
@@ -264,7 +276,7 @@ async function callOpenRouter(
   throw new Error(
     "Бесплатные модели OpenRouter сейчас перегружены или недоступны. " +
       "Повторите через минуту, добавьте свой ключ провайдера или пополните " +
-      `баланс. ${lastSkip}`.trim(),
+      `баланс. (${lastSkip})`.trim(),
   );
 }
 
